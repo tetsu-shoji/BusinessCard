@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>名刺AR動画再生アプリ 90x55 修正版</title>
+  <title>名刺AR動画再生アプリ 90x55 切替＆撮影対応版</title>
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
@@ -20,7 +20,6 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    /* 重要：カメラ映像だけを全画面にする。AR用動画 #cardVideo には適用しない */
     video:not(#cardVideo) {
       position: fixed !important;
       top: 0 !important;
@@ -34,7 +33,6 @@
       background: transparent !important;
     }
 
-    /* AR平面に貼る動画素材。画面には直接表示しない */
     #cardVideo {
       position: absolute !important;
       left: 0 !important;
@@ -94,12 +92,17 @@
       color: #111;
       background: rgba(255,255,255,0.94);
       box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+      cursor: pointer;
     }
 
     button:active { transform: scale(0.97); }
     #startBtn { background: #005bd3; color: #fff; }
     #stopBtn { background: #333; color: #fff; }
     #soundBtn { background: #00a36c; color: #fff; }
+    
+    /* 新規追加ボタンのスタイル */
+    #modeBtn { background: #ff9800; color: #fff; }
+    #captureBtn { background: #e91e63; color: #fff; }
 
     #status {
       position: fixed;
@@ -146,7 +149,7 @@
 
     #foundBanner {
       position: fixed;
-      top: 74px;
+      top: 100px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 35;
@@ -169,8 +172,9 @@
       <button id="startBtn">カメラ開始</button>
       <button id="stopBtn">停止</button>
       <button id="soundBtn">音ON</button>
-      <button id="replayBtn">動画を最初から</button>
-      <button id="checkBtn">確認</button>
+      <button id="modeBtn">立体モードへ切替</button>
+      <button id="captureBtn">撮影＆保存</button>
+      <button id="replayBtn">最初から</button>
     </div>
     <div id="foundBanner">名刺を認識しました</div>
     <div id="targetGuide"></div>
@@ -202,29 +206,35 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity id="cardTarget" mindar-image-target="targetIndex: 0">
-      <!-- 名刺実寸 横90mm 縦55mm。width=1 / height=55/90=0.611111 -->
-      <a-video
-        id="videoPlane"
-        src="#cardVideo"
-        width="1"
-        height="0.611111"
-        position="0 0 0.03"
-        rotation="0 0 0"
-        material="shader: flat; side: double; transparent: false;">
-      </a-video>
+      <!-- 角度と位置をコントロールするためのラッパー -->
+      <a-entity id="videoWrapper" position="0 0 0.03" rotation="0 0 0">
+        <!-- 名刺実寸 横90mm 縦55mm。width=1 / height=0.611111 -->
+        <a-video
+          id="videoPlane"
+          src="#cardVideo"
+          width="1"
+          height="0.611111"
+          position="0 0 0"
+          rotation="0 0 0"
+          material="shader: flat; side: double; transparent: false;">
+        </a-video>
+      </a-entity>
     </a-entity>
   </a-scene>
 
   <script>
     const sceneEl = document.querySelector('#arScene');
     const cardTargetEl = document.querySelector('#cardTarget');
+    const videoWrapper = document.querySelector('#videoWrapper');
+    const videoPlane = document.querySelector('#videoPlane');
     const videoEl = document.querySelector('#cardVideo');
 
     const startBtn = document.querySelector('#startBtn');
     const stopBtn = document.querySelector('#stopBtn');
     const soundBtn = document.querySelector('#soundBtn');
+    const modeBtn = document.querySelector('#modeBtn');
+    const captureBtn = document.querySelector('#captureBtn');
     const replayBtn = document.querySelector('#replayBtn');
-    const checkBtn = document.querySelector('#checkBtn');
 
     const statusEl = document.querySelector('#status');
     const targetGuide = document.querySelector('#targetGuide');
@@ -233,25 +243,93 @@
     let sceneLoaded = false;
     let arStarted = false;
     let videoUnlocked = false;
+    let isVerticalMode = false; // モード管理フラグ
 
     window.addEventListener('load', () => {
-      statusEl.textContent = 'ページを読み込みました。ARシーンの初期化を待っています。';
+      statusEl.textContent = '準備完了です。カメラ開始を押してください。';
     });
 
-    sceneEl.addEventListener('loaded', () => {
-      sceneLoaded = true;
-      statusEl.textContent = '準備完了です。確認ボタンでファイル状態を確認できます。';
+    sceneEl.addEventListener('loaded', () => { sceneLoaded = true; });
+
+    // ========= 新規追加：モード切替処理 =========
+    modeBtn.addEventListener('click', () => {
+      isVerticalMode = !isVerticalMode;
+      
+      if (isVerticalMode) {
+        modeBtn.textContent = '平面モードへ切替';
+        modeBtn.style.background = '#005bd3'; // 色を変えて状態をわかりやすく
+        
+        // 名刺の上辺（高さ0.6111の中心から上が 0.3055）にラッパーを移動し、-90度回転して立てる
+        videoWrapper.setAttribute('position', '0 0.3055 0.03');
+        videoWrapper.setAttribute('rotation', '-90 0 0');
+        // 動画は初期状態で「名刺の下」に隠しておく
+        videoPlane.setAttribute('position', '0 -0.3055 0');
+        statusEl.textContent = '立体モードに切り替えました。';
+      } else {
+        modeBtn.textContent = '立体モードへ切替';
+        modeBtn.style.background = '#ff9800';
+        
+        // 従来の平面モード（名刺の上にペタッと貼る）
+        videoWrapper.setAttribute('position', '0 0 0.03');
+        videoWrapper.setAttribute('rotation', '0 0 0');
+        videoPlane.setAttribute('position', '0 0 0');
+        videoPlane.removeAttribute('animation'); // アニメーション解除
+        statusEl.textContent = '平面モードに切り替えました。';
+      }
     });
 
-    videoEl.addEventListener('loadedmetadata', () => {
-      statusEl.textContent = '動画メタデータを読み込みました。カメラ開始を押してください。';
+    // ========= 新規追加：撮影・保存処理 =========
+    captureBtn.addEventListener('click', () => {
+      const arCanvas = document.querySelector('canvas.a-canvas');
+      const cameraVideos = Array.from(document.querySelectorAll('video'));
+      const cameraVideo = cameraVideos.find(v => v.id !== 'cardVideo');
+
+      if (!arCanvas || !cameraVideo) {
+        alert('ARが起動してから撮影してください。');
+        return;
+      }
+
+      // 合成用の裏キャンバスを作成
+      const compCanvas = document.createElement('canvas');
+      compCanvas.width = arCanvas.width;
+      compCanvas.height = arCanvas.height;
+      const ctx = compCanvas.getContext('2d');
+
+      // 1. カメラ映像を画面いっぱいに描画 (object-fit: coverの計算)
+      const videoRatio = cameraVideo.videoWidth / cameraVideo.videoHeight;
+      const canvasRatio = compCanvas.width / compCanvas.height;
+      let drawWidth, drawHeight, offsetX, offsetY;
+
+      if (canvasRatio > videoRatio) {
+        drawWidth = compCanvas.width;
+        drawHeight = compCanvas.width / videoRatio;
+        offsetX = 0;
+        offsetY = (compCanvas.height - drawHeight) / 2;
+      } else {
+        drawHeight = compCanvas.height;
+        drawWidth = compCanvas.height * videoRatio;
+        offsetX = (compCanvas.width - drawWidth) / 2;
+        offsetY = 0;
+      }
+
+      ctx.drawImage(cameraVideo, offsetX, offsetY, drawWidth, drawHeight);
+
+      // 2. その上にARコンテンツ（動画）を描画
+      ctx.drawImage(arCanvas, 0, 0, compCanvas.width, compCanvas.height);
+
+      // 3. 画像化してダウンロードさせる
+      const dataURL = compCanvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
+      link.download = `AR_Snap_${dateStr}.png`;
+      link.href = dataURL;
+      link.click();
+      
+      statusEl.textContent = '画像を保存しました！（端末によっては長押し保存が必要です）';
     });
 
-    videoEl.addEventListener('error', () => {
-      const err = videoEl.error;
-      statusEl.textContent = '動画読み込みエラーです。business_card_video.mp4 の形式、ファイル名、配置を確認してください。\nerror code: ' + (err ? err.code : '不明');
-    });
 
+    // ========= 既存のAR関連処理 =========
     async function waitForMindARSystem() {
       for (let i = 0; i < 50; i++) {
         const system = sceneEl.systems['mindar-image-system'];
@@ -288,9 +366,7 @@
         cameraVideo.style.height = '100vh';
         cameraVideo.style.objectFit = 'cover';
         cameraVideo.style.zIndex = '0';
-        cameraVideo.style.opacity = '1';
         cameraVideo.style.display = 'block';
-        cameraVideo.style.background = 'transparent';
       }
 
       videoEl.style.position = 'absolute';
@@ -307,74 +383,25 @@
         canvas.style.width = '100vw';
         canvas.style.height = '100vh';
         canvas.style.zIndex = '1';
-        canvas.style.background = 'transparent';
       }
     }
-
-    async function checkFilesAndSystem() {
-      let message = '';
-      message += 'URL:\n' + location.href + '\n\n';
-      message += 'HTTPS / Secure Context:\n' + (window.isSecureContext ? 'OK' : 'NG') + '\n\n';
-      message += 'カメラAPI:\n' + ((navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ? 'OK' : 'NG') + '\n\n';
-      message += 'AFRAME:\n' + (window.AFRAME ? 'OK' : 'NG') + '\n\n';
-      message += 'MindARコンポーネント登録:\n' + ((window.AFRAME && AFRAME.components && AFRAME.components['mindar-image-target']) ? 'OK: mindar-image-target あり' : 'NG: mindar-image-target なし') + '\n\n';
-      message += 'video要素数:\n' + document.querySelectorAll('video').length + '\n\n';
-      message += '動画状態:\nreadyState: ' + videoEl.readyState + '\nnetworkState: ' + videoEl.networkState + '\nmuted: ' + videoEl.muted + '\npaused: ' + videoEl.paused + '\nerror: ' + (videoEl.error ? videoEl.error.code : 'なし') + '\n\n';
-      message += 'ファイル確認:\n';
-
-      for (const file of ['./business_card.mind', './business_card_video.mp4']) {
-        try {
-          const res = await fetch(file, { cache: 'no-store' });
-          message += file + ' : HTTP ' + res.status + '\n';
-        } catch (e) {
-          message += file + ' : fetch失敗\n';
-        }
-      }
-
-      const system = sceneEl.systems['mindar-image-system'];
-      message += '\nMindARシステム:\n' + (system ? 'OK: 見つかりました' : 'NG: 見つかりません');
-      statusEl.textContent = message;
-      fixCameraVisualLayer();
-    }
-
-    checkBtn.addEventListener('click', checkFilesAndSystem);
 
     startBtn.addEventListener('click', async () => {
       try {
-        if (!window.isSecureContext) {
-          statusEl.textContent = 'HTTPSではありません。GitHub Pagesの https:// URLで開いてください。';
-          return;
-        }
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          statusEl.textContent = 'このブラウザではカメラAPIが使えません。Android Chrome または Safari で試してください。';
-          return;
-        }
-        if (!sceneLoaded) {
-          statusEl.textContent = 'ARシーンの読み込みがまだ完了していません。少し待つか、確認ボタンを押してください。';
-          return;
-        }
-
         const mindarSystem = await waitForMindARSystem();
-        if (!mindarSystem) {
-          statusEl.textContent = 'MindARシステムが見つかりません。scriptタグ、CDN、GitHub Pages URLを確認してください。';
-          return;
-        }
+        if (!mindarSystem) return;
 
         await unlockVideoOnce();
-
         targetGuide.style.display = 'block';
-        statusEl.textContent = 'カメラを起動しています。登録した名刺を枠に合わせてください。';
-
+        
         await mindarSystem.start();
         arStarted = true;
 
         setTimeout(fixCameraVisualLayer, 200);
         setTimeout(fixCameraVisualLayer, 800);
-
-        statusEl.textContent = '探索中です。business_card.mind に登録した名刺を画面中央に入れてください。';
+        statusEl.textContent = '登録した名刺を画面中央に入れてください。';
       } catch (error) {
-        console.error(error);
-        statusEl.textContent = 'カメラ開始に失敗しました。\n' + (error.message || String(error));
+        statusEl.textContent = 'カメラ開始に失敗しました。';
       }
     });
 
@@ -391,33 +418,59 @@
     soundBtn.addEventListener('click', async () => {
       videoEl.muted = !videoEl.muted;
       soundBtn.textContent = videoEl.muted ? '音ON' : '音OFF';
-      try { await videoEl.play(); } catch(e) { console.log(e); }
-      statusEl.textContent = videoEl.muted ? '動画をミュートにしました。' : '動画の音をONにしました。';
+      statusEl.textContent = videoEl.muted ? 'ミュートにしました。' : '音をONにしました。';
     });
 
     replayBtn.addEventListener('click', async () => {
       videoEl.currentTime = 0;
-      try {
-        await videoEl.play();
-        statusEl.textContent = '動画を最初から再生しました。';
-      } catch(e) {
-        console.log(e);
-        statusEl.textContent = '動画再生ができません。確認ボタンで動画状態と HTTP 200 を確認してください。';
-      }
+      try { await videoEl.play(); } catch(e) {}
     });
+
+    // アニメーション完了イベント用のハンドラ
+    let playAfterAnimHandler = null;
 
     cardTargetEl.addEventListener('targetFound', async () => {
       targetGuide.style.display = 'none';
       foundBanner.style.display = 'block';
       foundBanner.textContent = '名刺を認識しました';
-      try {
-        videoEl.currentTime = 0;
-        await videoEl.play();
-        statusEl.textContent = '名刺に合わせて動画を再生しています。';
-      } catch (e) {
-        console.error(e);
-        statusEl.textContent = '名刺は認識しましたが、動画再生がブロックされました。動画を最初からボタンを押してください。';
+      videoEl.currentTime = 0;
+
+      if (isVerticalMode) {
+        statusEl.textContent = '動画が立ち上がります...';
+        // 初期位置（名刺の下）にリセット
+        videoPlane.setAttribute('position', '0 -0.3055 0');
+        
+        // A-Frameのアニメーション機能でスライドさせる
+        videoPlane.setAttribute('animation', {
+          property: 'position',
+          to: '0 0.3055 0', // 立ち上がった位置
+          dur: 1000,        // 1秒かけて出現
+          easing: 'easeOutQuad',
+          loop: false
+        });
+
+        // 以前のリスナーが残っていれば消す
+        if (playAfterAnimHandler) {
+          videoPlane.removeEventListener('animationcomplete', playAfterAnimHandler);
+        }
+        
+        // アニメーションが終わったら再生開始
+        playAfterAnimHandler = async () => {
+          try {
+            await videoEl.play();
+            statusEl.textContent = '再生を開始しました。';
+          } catch(e) {}
+        };
+        videoPlane.addEventListener('animationcomplete', playAfterAnimHandler, { once: true });
+
+      } else {
+        // 平面モードの場合はすぐ再生
+        try {
+          await videoEl.play();
+          statusEl.textContent = '再生を開始しました。';
+        } catch (e) {}
       }
+
       setTimeout(() => { foundBanner.style.display = 'none'; }, 2500);
     });
 
@@ -426,7 +479,13 @@
       videoEl.pause();
       foundBanner.style.display = 'none';
       targetGuide.style.display = 'block';
-      statusEl.textContent = '名刺を見失いました。もう一度、名刺を画面中央に入れてください。';
+      statusEl.textContent = '名刺を見失いました。もう一度枠に入れてください。';
+
+      // 立体モードの場合、見失ったらアニメーションをリセットして初期位置に戻す
+      if (isVerticalMode) {
+        videoPlane.removeAttribute('animation');
+        videoPlane.setAttribute('position', '0 -0.3055 0');
+      }
     });
   </script>
 </body>
