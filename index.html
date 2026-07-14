@@ -1,799 +1,324 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <title>通過カウンター Pro 2025（Human mediapipe最適化／属性再試行）</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>名刺AR画像表示アプリ</title>
+
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
   <style>
-    :root { color-scheme: dark; --accent:#00e5ff; }
-    body   { font-family: system-ui, sans-serif; margin:0; background:#111; color:#eee; overflow:hidden; position:fixed; width:100%; height:100%; }
-    header { padding:10px 15px; background:#222; border-bottom:1px solid #444; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
-    main   { padding:10px; display:flex; flex-direction:column; gap:10px; height:calc(100% - 60px); overflow-y:auto; }
-    .panel { background:#1e1e1e; border-radius:8px; padding:12px; border:1px solid #333; }
-    .controls { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px; }
-    button, select, input { padding:10px; border-radius:6px; border:1px solid #555; background:#2a2a2a; color:#eee; font-size:13px; width:100%; box-sizing:border-box; }
-    button#startBtn { background:#28a745; border:none; font-weight:bold; }
-    button#stopBtn  { background:#dc3545; border:none; }
-    .small-btn { padding:6px 10px; font-size:11px; background:#444; border:1px solid #555; border-radius:6px; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
 
-    #wrap   { position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:6px; overflow:hidden; border:1px solid #444; touch-action:none; }
-    video   { width:100%; height:100%; object-fit:cover; transition:opacity .3s; }
-    canvas  { position:absolute; left:0; top:0; width:100%; height:100%; z-index:2; }
+    video {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      object-fit: cover !important;
+      z-index: 0 !important;
+      opacity: 1 !important;
+      display: block !important;
+    }
 
-    .count-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
-    .count-item { background:#252525; padding:8px; border-radius:6px; text-align:center; border:1px solid #333; }
-    .count-label { font-size:10px; color:#aaa; display:block; }
-    .count-value { font-size:20px; font-weight:bold; display:block; }
-    .ok { color:#3fd88f; } .warn { color:#ffcc66; }
+    canvas.a-canvas {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 1 !important;
+      background: transparent !important;
+    }
 
-    .attr-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-top:8px; }
-    .attr-item { background:#252525; padding:8px; border-radius:6px; text-align:center; border:1px solid #333; }
-    .attr-label { font-size:10px; color:#aaa; display:block; }
-    .attr-value { font-size:18px; font-weight:bold; display:block; }
+    a-scene {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      z-index: 1 !important;
+      background: transparent !important;
+    }
 
-    .config-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
-    .config-item { display:flex; flex-direction:column; gap:4px; }
-    .config-item label { font-size:11px; color:#aaa; }
+    #ui {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+    }
 
-    table { width:100%; border-collapse:collapse; font-size:12px; }
-    th,td { border:1px solid #333; padding:6px; }
-    thead tr { background:#222; }
+    #topPanel {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 30;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      pointer-events: auto;
+    }
 
-    .camera-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-    .camera-row > * { margin:2px 0; }
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #111;
+      background: rgba(255,255,255,0.94);
+      box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+    }
+
+    button:active { transform: scale(0.97); }
+    #startBtn { background: #005bd3; color: #fff; }
+    #stopBtn { background: #333; color: #fff; }
+
+    #status {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 16px;
+      z-index: 30;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.74);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      pointer-events: none;
+    }
+
+    #targetGuide {
+      position: fixed;
+      left: 50%;
+      top: 52%;
+      transform: translate(-50%, -50%);
+      width: 78vw;
+      max-width: 420px;
+      aspect-ratio: 91 / 55;
+      z-index: 25;
+      border: 3px dashed rgba(255,255,255,0.82);
+      border-radius: 12px;
+      pointer-events: none;
+      display: none;
+    }
+
+    #targetGuide::after {
+      content: "登録した名刺をこの枠に合わせてください";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -34px;
+      text-align: center;
+      color: #fff;
+      font-size: 13px;
+      text-shadow: 0 2px 5px rgba(0,0,0,0.8);
+    }
+
+    #foundBanner {
+      position: fixed;
+      top: 74px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 35;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(0, 91, 211, 0.94);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+      display: none;
+      pointer-events: none;
+    }
   </style>
-
-  <!-- ✅ 正しい script タグ -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human@3.4.0/dist/human.js"></script>
 </head>
+
 <body>
-
-<header>
-  <div style="display:flex; gap:10px; align-items:center;">
-    <span style="font-weight:bold; font-size:14px;">通過カウンター Pro 2025</span>
-    <span id="status" style="font-size:11px; color:#aaa;">モデル読込中...</span>
+  <div id="ui">
+    <div id="topPanel">
+      <button id="startBtn">カメラ開始</button>
+      <button id="stopBtn">停止</button>
+      <button id="checkBtn">確認</button>
+    </div>
+    <div id="foundBanner">名刺を認識しました</div>
+    <div id="targetGuide"></div>
+    <div id="status">初期化中です。</div>
   </div>
 
-  <!-- カメラUI（スマホ：フロント/バック、PC：物理カメラ選択） -->
-  <div class="camera-row">
-    <label style="font-size:11px;">属性集計</label>
-    <label style="font-size:11px;"><input type="checkbox" id="attrToggle" /> ON/OFF</label>
+  <a-scene
+    id="arScene"
+    mindar-image="imageTargetSrc: ./business_card.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1;"
+    embedded
+    color-space="sRGB"
+    renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true; alpha: true; preserveDrawingBuffer: true"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
 
-    <label style="font-size:11px;">集計間隔（分）</label>
-    <input type="number" id="logIntervalMin" min="0.5" max="60" step="0.5" value="2" style="width:90px;">
+    <a-assets>
+      <img id="overlayImage" src="./business_card_overlay.png" crossorigin="anonymous">
+    </a-assets>
 
-    <button id="refreshCamBtn" class="small-btn">カメラ再検出</button>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <label style="font-size:11px;">facingMode優先</label>
-    <label style="font-size:11px;"><input type="checkbox" id="useFacingModeToggle" checked>（スマホ推奨）</label>
-    <select id="facingSel" style="width:140px;">
-      <option value="environment" selected>バック（外側）</option>
-      <option value="user">フロント（内側）</option>
-    </select>
+    <a-entity id="cardTarget" mindar-image-target="targetIndex: 0">
+      <!-- 日本の標準的な名刺 91mm x 55mm の比率。width=1 / height=55/91=0.604 -->
+      <a-image
+        id="overlayPlane"
+        src="#overlayImage"
+        width="1"
+        height="0.604"
+        position="0 0 0.02"
+        rotation="0 0 0"
+        material="shader: flat; side: double; transparent: true;">
+      </a-image>
+    </a-entity>
+  </a-scene>
 
-    <label style="font-size:11px;">デバイス選択（PC/機種別）</label>
-    <select id="cameraSel" style="max-width:280px">
-      <option value="">未検出（開始→許可→再検出）</option>
-    </select>
-  </div>
-</header>
+  <script>
+    const sceneEl = document.querySelector('#arScene');
+    const cardTargetEl = document.querySelector('#cardTarget');
+    const startBtn = document.querySelector('#startBtn');
+    const stopBtn = document.querySelector('#stopBtn');
+    const checkBtn = document.querySelector('#checkBtn');
+    const statusEl = document.querySelector('#status');
+    const targetGuide = document.querySelector('#targetGuide');
+    const foundBanner = document.querySelector('#foundBanner');
 
-<main>
-  <!-- 診断パネル -->
-  <section class="panel" id="diagPanel" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:6px; margin-bottom:10px;">
-      <span style="font-size:12px; font-weight:bold;">診断情報（開始できない時はここを確認）</span>
-      <button id="diagCloseBtn" class="small-btn">閉じる</button>
-    </div>
-    <pre id="diagText" style="white-space:pre-wrap; font-size:12px; color:#ddd; background:#191919; padding:8px; border-radius:6px; border:1px solid #333; max-height:220px; overflow:auto;"></pre>
-  </section>
+    let sceneLoaded = false;
+    let arStarted = false;
 
-  <!-- 操作・映像 -->
-  <section class="panel">
-    <div class="controls">
-      <button id="startBtn">開始</button>
-      <button id="stopBtn" disabled>停止</button>
-      <button id="exportExcelBtn">Excel</button>
-    </div>
-    <div id="wrap">
-      <video id="video" autoplay playsinline muted></video>
-      <canvas id="overlay"></canvas>
-    </div>
-    <small style="display:block; margin-top:6px; color:#aaa;">
-      ※GitHub Pagesは <b>HTTPS</b> なのでOK。開始を押してカメラ許可を付与してください（他アプリ占有に注意）。
-    </small>
-  </section>
+    window.addEventListener('load', () => {
+      statusEl.textContent = 'ページを読み込みました。ARシーンの初期化を待っています。';
+    });
 
-  <!-- カウンター -->
-  <section class="panel">
-    <div class="count-grid">
-      <div class="count-item"><span class="count-label">右から</span><span class="count-value ok" id="liveL2R">0</span></div>
-      <div class="count-item"><span class="count-label">左から</span><span class="count-value ok" id="liveR2L">0</span></div>
-      <div class="count-item"><span class="count-label">滞在数</span><span class="count-value warn" id="liveStayers">0</span></div>
-      <div class="count-item"><span class="count-label">現人数</span><span class="count-value" id="currentInFrame">0</span></div>
-    </div>
+    sceneEl.addEventListener('loaded', () => {
+      sceneLoaded = true;
+      statusEl.textContent = '準備完了です。確認ボタンでファイル状態を確認できます。';
+    });
 
-    <!-- 属性集計カード -->
-    <div class="attr-grid">
-      <div class="attr-item"><span class="attr-label">推定：男性</span><span class="attr-value" id="attrMale">0</span></div>
-      <div class="attr-item"><span class="attr-label">推定：女性</span><span class="attr-value" id="attrFemale">0</span></div>
-      <div class="attr-item"><span class="attr-label">推定：不明</span><span class="attr-value" id="attrUnknown">0</span></div>
-      <div class="attr-item"><span class="attr-label">年齢層：子ども(~12)</span><span class="attr-value" id="ageChild">0</span></div>
-      <div class="attr-item"><span class="attr-label">年齢層：若年(13~29)</span><span class="attr-value" id="ageYouth">0</span></div>
-    </div>
-    <div class="attr-grid" style="margin-top:6px;">
-      <div class="attr-item"><span class="attr-label">年齢層：成人(30~64)</span><span class="attr-value" id="ageAdult">0</span></div>
-      <div class="attr-item"><span class="attr-label">年齢層：高齢(65~)</span><span class="attr-value" id="ageSenior">0</span></div>
-      <div class="attr-item"><span class="attr-label">属性推定状態</span><span class="attr-value" id="attrStatus">OFF</span></div>
-      <div class="attr-item"><span class="attr-label">推論バックエンド</span><span class="attr-value" id="backendInfo">webgl</span></div>
-      <div class="attr-item"><span class="attr-label">フレーム更新</span><span class="attr-value" id="logInfoMini">-</span></div>
-    </div>
-  </section>
-
-  <!-- 詳細設定（中央線安定化） -->
-  <section class="panel">
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:10px;">
-      <span style="font-size:12px; font-weight:bold;">詳細設定</span>
-      <button id="resetDataBtn" class="small-btn">データ初期化</button>
-    </div>
-    <div class="config-grid">
-      <div class="config-item">
-        <label>表示: <span id="vDisp">画像+枠</span></label>
-        <select id="dispModeSel">
-          <option value="both">画像 ＋ 枠表示</option>
-          <option value="boxOnly">枠のみ</option>
-          <option value="none">非表示</option>
-        </select>
-      </div>
-      <div class="config-item">
-        <label>検知モード</label>
-        <select id="modeSel">
-          <option value="midline">中央ライン</option>
-          <option value="area">エリア指定</option>
-        </select>
-      </div>
-      <div class="config-item">
-        <label>検知感度(Score): <span id="scoreVal">0.50</span></label>
-        <input type="range" id="scoreRange" min="0.2" max="0.9" step="0.05" value="0.50">
-      </div>
-      <div class="config-item">
-        <label>解析FPS(間隔): <span id="fpsVal">12</span>fps</label>
-        <input type="range" id="fpsRange" min="1" max="30" step="1" value="12">
-      </div>
-      <div class="config-item">
-        <label>中央ライン バンド幅(%)：<span id="bandVal">5</span></label>
-        <input type="range" id="bandRange" min="1" max="20" step="1" value="5">
-      </div>
-      <div class="config-item">
-        <label>最小速度(正規化)：<span id="minVelVal">0.02</span></label>
-        <input type="range" id="minVelRange" min="0.00" max="0.10" step="0.005" value="0.02">
-      </div>
-      <div class="config-item">
-        <label><input type="checkbox" id="strictToggle"> 厳密カウント（prevNX↔nx + 速度しきい値）</label>
-      </div>
-      <div class="config-item">
-        <label>追跡許容距離: <span id="distVal">0.15</span></label>
-        <input type="range" id="distRange" min="0.05" max="0.4" step="0.01" value="0.15">
-      </div>
-      <div class="config-item">
-        <label>滞在判定: <span id="stayTimeVal">60</span>秒</label>
-        <input type="range" id="stayTimeRange" min="5" max="300" step="5" value="60">
-      </div>
-    </div>
-  </section>
-
-  <!-- 集計表 -->
-  <section class="panel">
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:10px;">
-      <span style="font-size:12px; font-weight:bold;">集計表（自動更新）</span>
-      <span id="logInfo" style="font-size:11px; color:#aaa;"></span>
-    </div>
-    <div style="overflow:auto;">
-      <table id="logTable">
-        <thead>
-          <tr>
-            <th>時刻</th>
-            <th style="text-align:right;">右から</th>
-            <th style="text-align:right;">左から</th>
-            <th style="text-align:right;">滞在検知計</th>
-            <th>モード</th>
-            <th style="text-align:right;">Score</th>
-            <th style="text-align:right;">FPS</th>
-            <th style="text-align:right;">滞在(秒)</th>
-            <th style="text-align:right;">追跡距離</th>
-            <th>属性ON</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-</main>
-
-<script>
-/* ====== グローバル ====== */
-let model, stream = null, running = false;
-const video  = document.getElementById('video');
-const canvas = document.getElementById('overlay');
-const ctx    = canvas.getContext('2d');
-const tracks = new Map();
-let nextId = 1, vfcId = null, rafId = null, lastInferMs = 0;
-
-let roi = JSON.parse(localStorage.getItem('counter_roi')) || { x:0.3, y:0.3, w:0.4, h:0.4 };
-let isDragging = false;
-
-let stats = JSON.parse(localStorage.getItem('counter_stats')) || { L2R:0, R2L:0 };
-let intervalStayers = new Set();
-
-let attrEnabled = localStorage.getItem('counter_attr_enabled') === '1';
-let attrStats = JSON.parse(localStorage.getItem('counter_attr')) || {
-  male:0, female:0, unknown:0, child:0, youth:0, adult:0, senior:0
-};
-let human = null, humanReady = false;
-const ATTR_COUNT_MODE = "firstSeen"; // 初回検出時に属性加算
-
-let logs = JSON.parse(localStorage.getItem('counter_logs')) || [];
-let LOG_INTERVAL_MS = (parseFloat(localStorage.getItem('counter_log_interval_min')) || 2) * 60000;
-let logTimerId = null;
-
-let tfBackend = localStorage.getItem('counter_tf_backend') || 'webgl';
-const hasRVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
-
-let bandWidth = (parseFloat(localStorage.getItem('counter_band')) || 0.05); // 5%
-
-/* ====== 診断パネル ====== */
-function showDiag(text){
-  const panel = document.getElementById('diagPanel');
-  const pre   = document.getElementById('diagText');
-  pre.textContent = text;
-  panel.style.display = 'block';
-}
-document.getElementById('diagCloseBtn').onclick = () => {
-  document.getElementById('diagPanel').style.display = 'none';
-};
-async function collectDiag(err){
-  try{
-    const isSecure = window.isSecureContext;
-    const hasMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-    const devices  = (navigator.mediaDevices?.enumerateDevices) ? await navigator.mediaDevices.enumerateDevices() : [];
-    const cams     = devices.filter(d=>d.kind==='videoinput');
-    let permCam = 'unknown';
-    if (navigator.permissions?.query) {
-      try { permCam = (await navigator.permissions.query({ name:'camera' })).state; } catch {}
+    async function waitForMindARSystem() {
+      for (let i = 0; i < 50; i++) {
+        const system = sceneEl.systems['mindar-image-system'];
+        if (system) return system;
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      return null;
     }
-    const msg =
-`■診断
-- Secure Context(HTTPS/localhost): ${isSecure}
-- mediaDevices.getUserMedia: ${hasMedia}
-- カメラ台数(認識): ${cams.length}
-- 権限(camera): ${permCam}
-- facingMode優先: ${document.getElementById('useFacingModeToggle')?.checked}
-- facingSel: ${document.getElementById('facingSel')?.value}
-- deviceId選択: ${document.getElementById('cameraSel')?.value || '(未選択)'}
-- エラー: ${err ? (err.name + ': ' + err.message) : '(なし)'}
-URL: ${location.href}
-UA: ${navigator.userAgent}`;
-    showDiag(msg);
-  }catch(e){ showDiag(`診断中エラー: ${e?.message || e}`); }
-}
 
-/* ====== バンド幅判定 ====== */
-function sideOf(x){
-  if (x <= 0.5 - bandWidth) return 'L';
-  if (x >= 0.5 + bandWidth) return 'R';
-  return 'C';
-}
+    function fixCameraVisualLayer() {
+      const cameraVideo = Array.from(document.querySelectorAll('video')).find(v => !v.id);
+      const canvas = document.querySelector('canvas');
+      if (cameraVideo) {
+        cameraVideo.style.position = 'fixed';
+        cameraVideo.style.top = '0';
+        cameraVideo.style.left = '0';
+        cameraVideo.style.width = '100vw';
+        cameraVideo.style.height = '100vh';
+        cameraVideo.style.objectFit = 'cover';
+        cameraVideo.style.zIndex = '0';
+        cameraVideo.style.opacity = '1';
+        cameraVideo.style.display = 'block';
+      }
+      if (canvas) {
+        canvas.style.position = 'fixed';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100vw';
+        canvas.style.height = '100vh';
+        canvas.style.zIndex = '1';
+        canvas.style.background = 'transparent';
+      }
+    }
 
-/* ====== 初期化 ====== */
-window.addEventListener('DOMContentLoaded', async () => {
-  try{
-    await tf.setBackend(tfBackend); await tf.ready();
-    model = await cocoSsd.load({ base:'lite_mobilenet_v2' });
-    document.getElementById('status').textContent = `READY (${tfBackend})`;
-    document.getElementById('backendInfo').textContent = tfBackend;
-  }catch(e){ document.getElementById('status').textContent='ERR: MODEL LOAD'; console.error(e); }
-
-  initROIHandler();
-  bindRange('scoreRange','scoreVal'); bindRange('fpsRange','fpsVal');
-  bindRange('stayTimeRange','stayTimeVal'); bindRange('distRange','distVal');
-  bindRangePct('bandRange','bandVal',(v)=>{ bandWidth = v/100; localStorage.setItem('counter_band', bandWidth); });
-  bindRange('minVelRange','minVelVal'); restoreSettings();
-
-  document.getElementById('logIntervalMin').value = (LOG_INTERVAL_MS/60000).toString();
-  document.getElementById('logIntervalMin').onchange = () => {
-    const m = Math.max(0.5, Math.min(60, parseFloat(document.getElementById('logIntervalMin').value)));
-    LOG_INTERVAL_MS = m * 60000; localStorage.setItem('counter_log_interval_min', m.toString());
-    if (running) { stopLogTimer(); startLogTimer(); }
-  };
-
-  document.getElementById('attrToggle').checked = attrEnabled;
-  document.getElementById('attrToggle').onchange = async (e)=>{
-    attrEnabled = e.target.checked;
-    localStorage.setItem('counter_attr_enabled', attrEnabled ? '1':'0');
-    document.getElementById('attrStatus').textContent = attrEnabled ? (humanReady?'ON':'INIT') : 'OFF';
-    if (attrEnabled && !humanReady) await initHuman();
-  };
-
-  await populateCamerasRobust();
-
-  document.getElementById('refreshCamBtn').onclick = populateCamerasRobust;
-  document.getElementById('cameraSel').onchange = () => { if (running) stopSystem(true); startSystem(); };
-  document.getElementById('useFacingModeToggle').onchange = () => { if (running) stopSystem(true); startSystem(); };
-  document.getElementById('facingSel').onchange = () => { if (running) stopSystem(true); startSystem(); };
-
-  document.getElementById('startBtn').onclick = startSystem;
-  document.getElementById('stopBtn').onclick  = () => { stopSystem(false); };
-  document.getElementById('resetDataBtn').onclick = resetAll;
-
-  renderLogTable(); updateDisplay();
-});
-
-/* ====== カメラ列挙 ====== */
-async function populateCamerasRobust(){
-  try{
-    const tmp = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
-    tmp.getTracks().forEach(t=>t.stop());
-  }catch(e){ console.warn('初回許可取得に失敗（列挙は継続）:', e); }
-
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  const cams = devices.filter(d=>d.kind==='videoinput');
-  const sel = document.getElementById('cameraSel');
-  sel.innerHTML = cams.length
-    ? cams.map(d=>`<option value="${d.deviceId}">${d.label || 'Camera'}</option>`).join('')
-    : `<option value="">（カメラ未検出）</option>`;
-}
-
-/* ====== ストリーム取得（段階フォールバック） ====== */
-async function startSystem(){
-  try{
-    if (stream) stream.getTracks().forEach(t=>t.stop());
-
-    let s = null;
-    const preferFacing = document.getElementById('useFacingModeToggle').checked;
-    if (preferFacing){
-      const facing = document.getElementById('facingSel').value;
-      try {
-        s = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ exact:facing }, width:{ ideal:1280 } }, audio:false });
-      } catch(e1) {
-        console.warn('facingMode exact 失敗:', e1);
+    async function checkFilesAndSystem() {
+      let message = '';
+      message += 'URL:\n' + location.href + '\n\n';
+      message += 'HTTPS / Secure Context:\n' + (window.isSecureContext ? 'OK' : 'NG') + '\n\n';
+      message += 'カメラAPI:\n' + ((navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ? 'OK' : 'NG') + '\n\n';
+      message += 'AFRAME:\n' + (window.AFRAME ? 'OK' : 'NG') + '\n\n';
+      message += 'MindARコンポーネント登録:\n' + ((window.AFRAME && AFRAME.components && AFRAME.components['mindar-image-target']) ? 'OK: mindar-image-target あり' : 'NG: mindar-image-target なし') + '\n\n';
+      message += 'ファイル確認:\n';
+      for (const file of ['./business_card.mind', './business_card_overlay.png']) {
         try {
-          s = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:facing, width:{ ideal:1280 } }, audio:false });
-        } catch(e2) {
-          console.warn('facingMode fallback 失敗:', e2);
-          const deviceId = document.getElementById('cameraSel').value || undefined;
-          try {
-            s = await navigator.mediaDevices.getUserMedia({
-              video: deviceId ? { deviceId:{ exact:deviceId }, width:{ ideal:1280 } } : { width:{ ideal:1280 } },
-              audio:false
-            });
-          } catch(e3) {
-            console.warn('deviceIdでも失敗 → 最小構成:', e3);
-            s = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
-          }
+          const res = await fetch(file, { cache: 'no-store' });
+          message += file + ' : HTTP ' + res.status + '\n';
+        } catch (e) {
+          message += file + ' : fetch失敗\n';
         }
       }
-    } else {
-      const deviceId = document.getElementById('cameraSel').value || undefined;
+      const system = sceneEl.systems['mindar-image-system'];
+      message += '\nMindARシステム:\n' + (system ? 'OK: 見つかりました' : 'NG: 見つかりません');
+      statusEl.textContent = message;
+    }
+
+    checkBtn.addEventListener('click', checkFilesAndSystem);
+
+    startBtn.addEventListener('click', async () => {
       try {
-        s = await navigator.mediaDevices.getUserMedia({
-          video: deviceId ? { deviceId:{ exact:deviceId }, width:{ ideal:1280 } } : { width:{ ideal:1280 } },
-          audio:false
-        });
-      } catch(e4) {
-        console.warn('deviceId 失敗 → 最小構成:', e4);
-        s = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
-      }
-    }
-
-    stream = s;
-    video.srcObject = stream;
-    video.onloadedmetadata = () => {
-      try { video.play(); } catch {}
-      resize(); running = true; document.getElementById('status').textContent='RUNNING';
-      if (attrEnabled && !humanReady) initHuman();
-      startLogTimer();
-      if (hasRVFC) vfcId = video.requestVideoFrameCallback(onFrame);
-      else rafId = requestAnimationFrame(onFrameRAF);
-    };
-
-    document.getElementById('startBtn').disabled = true;
-    document.getElementById('stopBtn').disabled  = false;
-
-    try { await populateCamerasRobust(); } catch {}
-
-  }catch(err){
-    console.error('カメラ取得失敗:', err);
-    await collectDiag(err);
-    alert('カメラを取得できませんでした。診断パネルをご確認ください。');
-  }
-}
-function stopSystem(restart=false){
-  running=false; stopLogTimer();
-  try{ if (vfcId!==null){ video.cancelVideoFrameCallback(vfcId); vfcId=null; } }catch{}
-  if (rafId!==null){ cancelAnimationFrame(rafId); rafId=null; }
-  if (stream){ try{ stream.getTracks().forEach(t=>t.stop()); }catch{} stream=null; }
-  document.getElementById('startBtn').disabled = !!restart;
-  document.getElementById('stopBtn').disabled  = true;
-}
-
-/* ====== Human（mediapipe最適化＋再試行） ====== */
-async function initHuman(){
-  if (humanReady) return;
-  try{
-    const humanConfig = {
-      modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human@3.4.0/models', // CDN固定
-      backend: tfBackend,         // 'webgl' 既定
-      warmup: 'face',             // 先に顔をウォームアップ
-      filter: { enabled: true, size: 3, sigma: 1.5 }, // 軽い平滑化
-      cacheSensitivity: 0.5,      // 簡易キャッシュ
-      face: {
-        enabled: true,
-        detector: {
-          model: 'mediapipe',     // ★ mediapipe に切替
-          minConfidence: 0.5,
-          maxDetected: 5,
-          return: true
-        },
-        mesh: { enabled: false }, // コスト削減
-        description: { enabled: true }, // 年齢・性別
-        attention: { enabled: false }
-      },
-      body: { enabled: false },
-      hand: { enabled: false },
-      gesture: { enabled: false }
-    };
-    human = new Human(humanConfig);
-    await human.load();
-    humanReady = true;
-    document.getElementById('attrStatus').textContent='ON';
-  }catch(e){
-    console.error('Human init error:', e);
-    humanReady=false; document.getElementById('attrStatus').textContent='ERR';
-  }
-}
-
-/* ====== 推論ループ ====== */
-async function onFrame(now){
-  if (!running) return;
-  const fpsLimit = 1000 / parseInt(document.getElementById('fpsRange').value);
-  if (now - lastInferMs >= fpsLimit){
-    lastInferMs = now;
-    const scoreThresh = parseFloat(document.getElementById('scoreRange').value);
-    const peopleDet   = await model.detect(video);
-    let facesDet = null;
-    if (attrEnabled && humanReady) facesDet = await human.detect(video);
-    updateLogic(peopleDet, scoreThresh, facesDet);
-    saveStats(); document.getElementById('logInfoMini').textContent = new Date().toLocaleTimeString();
-  }
-  drawOverlay();
-  vfcId = video.requestVideoFrameCallback(onFrame);
-}
-function onFrameRAF(now){ onFrame(now); rafId = requestAnimationFrame(onFrameRAF); }
-
-/* ====== マッチング/集計（mediapipe対応の属性抽出＋再試行） ====== */
-function iou(b1,b2){
-  const [x1,y1,w1,h1]=b1,[x2,y2,w2,h2]=b2;
-  const xa=Math.max(x1,x2), ya=Math.max(y1,y2), xb=Math.min(x1+w1,x2+w2), yb=Math.min(y1+h1,y2+h2);
-  const inter=Math.max(0,xb-xa)*Math.max(0,yb-ya), union=w1*h1+w2*h2-inter;
-  return union ? inter/union : 0;
-}
-function extractAttr(face){
-  let gender='unknown';
-  if (face && typeof face.gender==='string'){
-    const g=face.gender.toLowerCase(); gender = (g==='male'||g==='female') ? g : 'unknown';
-  }
-  let ageEst = (face && typeof face.age==='number') ? face.age
-             : (face && typeof face.ageYears==='number') ? face.ageYears : undefined;
-  let bucket='unknown';
-  if (ageEst!==undefined && !Number.isNaN(ageEst)){
-    const a=Math.round(ageEst);
-    bucket = (a<=12)?'child':(a<=29)?'youth':(a<=64)?'adult':'senior';
-  }
-  return { gender, age:ageEst, bucket };
-}
-
-/* 顔→人物の割当（IoU＋中心距離の複合スコア） */
-function assignFaceToDetection(facesDet, people) {
-  const map = new Map();
-  if (!facesDet || !facesDet.face || !facesDet.face.length) return map;
-  for (const face of facesDet.face) {
-    const fb = face.box ? [face.box[0], face.box[1], face.box[2], face.box[3]] : null;
-    if (!fb) continue;
-    let bestIdx = -1, bestScore = -Infinity;
-    const fx = fb[0] + fb[2]/2, fy = fb[1] + fb[3]/2;
-    for (let i=0;i<people.length;i++){
-      const pb = people[i].bbox;
-      const px = pb[0] + pb[2]/2, py = pb[1] + pb[3]/2;
-      const ov = iou(fb, pb);
-      const dist = Math.hypot((fx-px), (fy-py));
-      const normDist = dist / Math.hypot(pb[2], pb[3] || 1);
-      const score = ov - (normDist * 0.2);
-      if (score > bestScore){ bestScore = score; bestIdx = i; }
-    }
-    if (bestIdx >= 0 && bestScore > 0.02) map.set(bestIdx, face);
-  }
-  return map;
-}
-
-/* 顔サイズしきい値（画面に対する割合） */
-function faceTooSmall(face, video) {
-  if (!face || !face.box) return true;
-  const area = face.box[2] * face.box[3];
-  const minArea = (video.videoWidth * video.videoHeight) * 0.01; // 最低1%面積
-  return area < minArea;
-}
-
-/* 属性再試行の最大回数 */
-const MAX_ATTR_TRIES = 12;
-
-function updateLogic(detections, thresh, facesDet){
-  const mode = document.getElementById('modeSel').value;
-  const stayTimeLimitMs = parseInt(document.getElementById('stayTimeRange').value)*1000;
-  const distLimit = parseFloat(document.getElementById('distRange').value);
-  const minVel = parseFloat(document.getElementById('minVelRange').value);
-  const strict = document.getElementById('strictToggle').checked;
-
-  const people = detections.filter(d=>d.class==='person' && d.score>thresh);
-  const unmatched = new Set(tracks.keys());
-
-  const faceMap = assignFaceToDetection(facesDet, people);
-
-  for (let idx=0; idx<people.length; idx++){
-    const d = people[idx];
-    const nx = (d.bbox[0] + d.bbox[2]/2)/video.videoWidth;
-    const ny = (d.bbox[1] + d.bbox[3]/2)/video.videoHeight;
-
-    let bestId=null, bestScore=-Infinity;
-    for (const id of unmatched){
-      const t=tracks.get(id);
-      const dist=Math.hypot(nx-t.nx, ny-t.ny);
-      const ov=iou(d.bbox, t.bbox);
-      const score=(1-dist)+ov;
-      if (dist<=distLimit && score>bestScore){ bestScore=score; bestId=id; }
-    }
-
-    if (bestId!==null){
-      const t=tracks.get(bestId);
-      const prevNX=t.nx, prevSide = sideOf(t.nx);
-      t.nx=nx; t.ny=ny;
-      t.vel=((t.vel||0)*0.7) + ((nx - prevNX)*0.3);
-      t.bbox=d.bbox; t.lastSeen=Date.now();
-
-      // 属性更新（再試行ロジック）
-      if (attrEnabled && faceMap.has(idx) && !t.attrFixed) {
-        const f = faceMap.get(idx);
-        if (!faceTooSmall(f, video)) {
-          const cand = extractAttr(f);
-          // gender/age どちらかが有効なら採用
-          if (cand.gender !== 'unknown' || (cand.age !== undefined && !Number.isNaN(cand.age))) {
-            t.attr = cand;
-            applyAttrCountOnce(t);
-          } else {
-            // 再試行カウンタ
-            t.attrTries = (t.attrTries || 0) + 1;
-            if (t.attrTries > MAX_ATTR_TRIES) {
-              t.attr = { gender:'unknown', age:undefined, bucket:'unknown' };
-              t.attrFixed = true; // もう再試行しない
-              attrStats.unknown++; // 最終的に不明として加算（性別のみ）
-              localStorage.setItem('counter_attr', JSON.stringify(attrStats));
-            }
-          }
-        } else {
-          // 顔が小さすぎる → 次フレームで再試行
-          t.attrTries = (t.attrTries || 0) + 1;
+        if (!window.isSecureContext) {
+          statusEl.textContent = 'HTTPSではありません。GitHub Pagesの https:// URLで開いてください。';
+          return;
         }
-      }
-
-      // カウント判定
-      if (!t.counted){
-        let counted=false;
-        if (mode==='midline'){
-          if (strict){
-            if (prevNX<0.5 && nx>=0.5 && Math.abs(t.vel)>=minVel){ stats.L2R++; counted=true; }
-            else if (prevNX>0.5 && nx<=0.5 && Math.abs(t.vel)>=minVel){ stats.R2L++; counted=true; }
-          }else{
-            const nowSide=sideOf(nx);
-            if (prevSide==='L' && nowSide==='R' && Math.abs(t.vel)>=minVel){ stats.L2R++; counted=true; }
-            else if (prevSide==='R' && nowSide==='L' && Math.abs(t.vel)>=minVel){ stats.R2L++; counted=true; }
-          }
-        }else{
-          const inROI=(x,y)=>(x>roi.x && x<roi.x+roi.w && y>roi.y && y<roi.y+roi.h);
-          const nowIn=inROI(nx,ny);
-          if (!t.inArea && nowIn){ stats.L2R++; counted=true; t.inArea=true; }
-          else if (t.inArea && !nowIn){ t.inArea=false; }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          statusEl.textContent = 'このブラウザではカメラAPIが使えません。Android Chrome または Safari で試してください。';
+          return;
         }
-        if (counted) t.counted=true;
+        if (!sceneLoaded) {
+          statusEl.textContent = 'ARシーンの読み込みがまだ完了していません。少し待つか、確認ボタンを押してください。';
+          return;
+        }
+        const mindarSystem = await waitForMindARSystem();
+        if (!mindarSystem) {
+          statusEl.textContent = 'MindARシステムが見つかりません。scriptタグ、CDN、GitHub Pages URLを確認してください。';
+          return;
+        }
+        targetGuide.style.display = 'block';
+        statusEl.textContent = 'カメラを起動しています。登録した名刺を枠に合わせてください。';
+        await mindarSystem.start();
+        arStarted = true;
+        setTimeout(fixCameraVisualLayer, 500);
+        statusEl.textContent = '探索中です。business_card.mind に登録した名刺を画面中央に入れてください。';
+      } catch (error) {
+        console.error(error);
+        statusEl.textContent = 'カメラ開始に失敗しました。\n' + (error.message || String(error));
       }
+    });
 
-      // 滞在
-      if (!t.stayed && (Date.now()-t.startMs>stayTimeLimitMs)){ t.stayed=true; intervalStayers.add(t.id); }
-      unmatched.delete(bestId);
-    }else{
-      const nt={ nx,ny,bbox:d.bbox,startMs:Date.now(),lastSeen:Date.now(), counted:false,stayed:false,inArea:false,vel:0,
-                 attr:{gender:'unknown',age:undefined,bucket:'unknown'}, attrFixed:false, attrTries:0 };
-      if (attrEnabled && faceMap.has(idx)) {
-        const f = faceMap.get(idx);
-        if (!faceTooSmall(f, video)) nt.attr = extractAttr(f);
-      }
-      tracks.set(nextId++, nt);
-      if (ATTR_COUNT_MODE==="firstSeen" && attrEnabled) applyAttrCountOnce(nt);
-    }
-  }
+    stopBtn.addEventListener('click', () => {
+      const system = sceneEl.systems['mindar-image-system'];
+      if (system) system.stop();
+      arStarted = false;
+      targetGuide.style.display = 'none';
+      foundBanner.style.display = 'none';
+      statusEl.textContent = '停止しました。';
+    });
 
-  for (const id of unmatched){ if (Date.now()-tracks.get(id).lastSeen > 3000) tracks.delete(id); }
-  updateDisplay();
-}
+    cardTargetEl.addEventListener('targetFound', () => {
+      targetGuide.style.display = 'none';
+      foundBanner.style.display = 'block';
+      statusEl.textContent = '名刺に合わせて添付画像を表示しています。';
+      setTimeout(() => { foundBanner.style.display = 'none'; }, 2500);
+    });
 
-/* 属性加算(一度だけ) */
-function applyAttrCountOnce(t){
-  if (!attrEnabled || t.attrFixed || !t.attr) return;
-  const g=t.attr.gender||'unknown', b=t.attr.bucket||'unknown';
-  if (g==='male') attrStats.male++;
-  else if (g==='female') attrStats.female++;
-  else attrStats.unknown++;
-  if (b==='child') attrStats.child++;
-  else if (b==='youth') attrStats.youth++;
-  else if (b==='adult') attrStats.adult++;
-  else if (b==='senior') attrStats.senior++;
-  t.attrFixed=true; localStorage.setItem('counter_attr', JSON.stringify(attrStats));
-}
-
-/* ====== オーバレイ描画 ====== */
-function drawOverlay(){
-  const dMode=document.getElementById('dispModeSel').value;
-  const mode=document.getElementById('modeSel').value;
-  video.style.opacity = (dMode==='both') ? "1" : "0";
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  if (dMode==='none') return;
-
-  ctx.lineWidth=2;
-  if (mode==='midline'){
-    ctx.strokeStyle='rgba(0,229,255,0.5)'; ctx.beginPath(); ctx.moveTo(canvas.width/2,0); ctx.lineTo(canvas.width/2,canvas.height); ctx.stroke();
-    ctx.strokeStyle='rgba(0,229,255,0.2)';
-    const bandPx = bandWidth * canvas.width;
-    ctx.beginPath(); ctx.moveTo(canvas.width/2 - bandPx,0); ctx.lineTo(canvas.width/2 - bandPx,canvas.height); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(canvas.width/2 + bandPx,0); ctx.lineTo(canvas.width/2 + bandPx,canvas.height); ctx.stroke();
-  }else{
-    ctx.strokeStyle='rgba(255,204,102,0.5)'; ctx.setLineDash([5,5]);
-    ctx.strokeRect(roi.x*canvas.width, roi.y*canvas.height, roi.w*canvas.width, roi.h*canvas.height);
-    ctx.setLineDash([]);
-  }
-
-  for (const t of tracks.values()){
-    if (Date.now()-t.lastSeen>500) continue;
-    const [vx,vy,vw,vh]=t.bbox; const sx=canvas.width/video.videoWidth, sy=canvas.height/video.videoHeight;
-    ctx.strokeStyle = t.stayed?'#ffcc66':'#00e5ff'; ctx.strokeRect(vx*sx,vy*sy,vw*sx,vh*sy);
-    const secs=Math.floor((Date.now()-t.startMs)/1000);
-    let attrText='';
-    if (attrEnabled && t.attr){
-      const g=t.attr.gender||'unknown';
-      const age=(t.attr.age!==undefined)?Math.round(t.attr.age):'-';
-      const b=t.attr.bucket||'unknown';
-      attrText=` | ${g}/${age}/${b}`;
-    }
-    ctx.fillStyle=t.stayed?'#ffcc66':'#00e5ff'; ctx.font="10px sans-serif";
-    ctx.fillText(`ID:${t.id} ${secs}s${attrText}`, vx*sx, (vy*sy)-5);
-  }
-}
-
-/* ====== 表示＆保存 ====== */
-function updateDisplay(){
-  document.getElementById('liveL2R').textContent = stats.L2R;
-  document.getElementById('liveR2L').textContent = stats.R2L;
-  document.getElementById('liveStayers').textContent = intervalStayers.size;
-
-  const fps=parseInt(document.getElementById('fpsRange').value);
-  const aliveMs=Math.max(500, Math.floor((1000/fps)*2));
-  document.getElementById('currentInFrame').textContent =
-    Array.from(tracks.values()).filter(t=>Date.now()-t.lastSeen<aliveMs).length;
-
-  document.getElementById('attrMale').textContent   = attrStats.male;
-  document.getElementById('attrFemale').textContent = attrStats.female;
-  document.getElementById('attrUnknown').textContent= attrStats.unknown;
-  document.getElementById('ageChild').textContent   = attrStats.child;
-  document.getElementById('ageYouth').textContent   = attrStats.youth;
-  document.getElementById('ageAdult').textContent   = attrStats.adult;
-  document.getElementById('ageSenior').textContent  = attrStats.senior;
-  document.getElementById('attrStatus').textContent = attrEnabled ? (humanReady ? 'ON' : 'INIT') : 'OFF';
-}
-function saveStats(){ localStorage.setItem('counter_stats', JSON.stringify(stats)); }
-
-/* ====== ROIドラッグ ====== */
-function initROIHandler(){
-  let startX,startY;
-  const handleStart=(e)=>{ if (document.getElementById('modeSel').value!=='area') return;
-    isDragging=true; const rect=canvas.getBoundingClientRect();
-    startX=((e.clientX||(e.touches&&e.touches[0].clientX))-rect.left)/canvas.width;
-    startY=((e.clientY||(e.touches&&e.touches[0].clientY))-rect.top)/canvas.height; };
-  const handleMove=(e)=>{ if(!isDragging) return; const rect=canvas.getBoundingClientRect();
-    let curX=((e.clientX||(e.touches&&e.touches[0].clientX))-rect.left)/canvas.width;
-    let curY=((e.clientY||(e.touches&&e.touches[0].clientY))-rect.top)/canvas.height;
-    roi.x=Math.max(0,Math.min(startX,curX)); roi.y=Math.max(0,Math.min(startY,curY));
-    roi.w=Math.abs(curX-startX); roi.h=Math.abs(curY-startY); };
-  canvas.addEventListener('mousedown',handleStart); canvas.addEventListener('touchstart',handleStart);
-  window.addEventListener('mousemove',handleMove); window.addEventListener('touchmove',handleMove);
-  window.addEventListener('mouseup',()=>{ isDragging=false; persistSettings(); });
-  window.addEventListener('touchend',()=>{ isDragging=false; persistSettings(); });
-}
-
-/* ====== レイアウト/設定 ====== */
-function resize(){ canvas.width=document.getElementById('wrap').clientWidth; canvas.height=document.getElementById('wrap').clientHeight; }
-window.onresize=resize;
-function bindRange(id, valId){ document.getElementById(id).oninput=(e)=>{ document.getElementById(valId).textContent=e.target.value; persistSettings(); }; }
-function bindRangePct(id, valId, cb){ document.getElementById(id).oninput=(e)=>{ document.getElementById(valId).textContent=e.target.value; cb(parseFloat(e.target.value)); }; }
-function persistSettings(){
-  localStorage.setItem('counter_roi', JSON.stringify(roi));
-  ['scoreRange','fpsRange','stayTimeRange','distRange','dispModeSel','modeSel','counter_tf_backend']
-  .forEach(id=>{
-    const val=(id==='counter_tf_backend')?tfBackend:document.getElementById(id).value;
-    localStorage.setItem(`counter_${id}`, val);
-  });
-}
-function restoreSettings(){
-  ['scoreRange','fpsRange','stayTimeRange','distRange','dispModeSel','modeSel']
-    .forEach(id=>{ const v=localStorage.getItem(`counter_${id}`); if (v!==null) document.getElementById(id).value=v; });
-  const be=localStorage.getItem('counter_tf_backend'); if (be) tfBackend=be;
-}
-
-/* ====== スナップショット/テーブル/Excel ====== */
-function snapshotLog(){
-  const row = {
-    timestamp:new Date().toISOString(), mode:document.getElementById('modeSel').value,
-    score:parseFloat(document.getElementById('scoreRange').value), fps:parseInt(document.getElementById('fpsRange').value),
-    staySec:parseInt(document.getElementById('stayTimeRange').value), dist:parseFloat(document.getElementById('distRange').value),
-    rightFrom:stats.L2R, leftFrom:stats.R2L, stayers:intervalStayers.size, attrOn: attrEnabled?1:0
-  };
-  logs.push(row); localStorage.setItem('counter_logs', JSON.stringify(logs));
-  renderLogTable(); document.getElementById('logInfo').textContent=`最終更新: ${new Date().toLocaleString()}`;
-}
-function renderLogTable(){
-  const tbody=document.querySelector('#logTable tbody'); if(!tbody) return; tbody.innerHTML='';
-  for (const r of logs){
-    const tr=document.createElement('tr');
-    tr.innerHTML=`
-      <td>${new Date(r.timestamp).toLocaleString()}</td>
-      <td style="text-align:right;">${r.rightFrom}</td>
-      <td style="text-align:right;">${r.leftFrom}</td>
-      <td style="text-align:right;">${r.stayers}</td>
-      <td>${r.mode}</td>
-      <td style="text-align:right;">${r.score}</td>
-      <td style="text-align:right;">${r.fps}</td>
-      <td style="text-align:right;">${r.staySec}</td>
-      <td style="text-align:right;">${r.dist}</td>
-      <td>${r.attrOn?'ON':'OFF'}</td>`;
-    tbody.appendChild(tr);
-  }
-}
-function startLogTimer(){ if (logTimerId) clearInterval(logTimerId); logTimerId = setInterval(()=>{ if(running) snapshotLog(); }, LOG_INTERVAL_MS); }
-function stopLogTimer(){ if (logTimerId){ clearInterval(logTimerId); logTimerId=null; } }
-document.getElementById('exportExcelBtn').onclick = ()=>{
-  snapshotLog();
-  const output = logs.map(r=>({
-    "時刻":new Date(r.timestamp).toLocaleString(),
-    "右から":r.rightFrom, "左から":r.leftFrom, "滞在検知計":r.stayers,
-    "モード":r.mode, "Score":r.score, "FPS":r.fps, "滞在(秒)":r.staySec, "追跡距離":r.dist, "属性ON": r.attrOn ? "ON":"OFF"
-  }));
-  const ws=XLSX.utils.json_to_sheet(output,{header:["時刻","右から","左から","滞在検知計","モード","Score","FPS","滞在(秒)","追跡距離","属性ON"]});
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Log");
-  XLSX.writeFile(wb, `counter_report_${new Date().toISOString().slice(0,10)}.xlsx`);
-};
-
-/* ====== リセット ====== */
-function resetAll(){
-  if (confirm("全てのデータを消去します。")){
-    stats={L2R:0,R2L:0}; intervalStayers.clear();
-    attrStats={male:0,female:0,unknown:0,child:0,youth:0,adult:0,senior:0};
-    logs=[]; saveStats(); localStorage.setItem('counter_attr', JSON.stringify(attrStats));
-    localStorage.setItem('counter_logs', JSON.stringify(logs));
-    updateDisplay(); renderLogTable(); document.getElementById('logInfo').textContent='';
-  }
-}
-
-/* ====== ROIドラッグ補助 ====== */
-function cancelVideoFrameCallback(id){ try{ video.cancelVideoFrameCallback(id); }catch{} }
-</script>
+    cardTargetEl.addEventListener('targetLost', () => {
+      if (!arStarted) return;
+      foundBanner.style.display = 'none';
+      targetGuide.style.display = 'block';
+      statusEl.textContent = '名刺を見失いました。もう一度、名刺を画面中央に入れてください。';
+    });
+  </script>
 </body>
 </html>
