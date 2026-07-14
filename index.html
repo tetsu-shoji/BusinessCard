@@ -4,25 +4,165 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>名刺AR動画 90x55 黒画面対策2</title>
+  <title>名刺AR動画再生アプリ 90x55 修正版</title>
+
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
   <style>
-    html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:system-ui,sans-serif;}
-    /* ここでは video 全体指定をしません。黒画面原因を避けるためです。 */
-    #cardVideo{position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;}
-    a-scene{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;background:transparent!important;}
-    canvas.a-canvas{background:transparent!important;}
-    #ui{position:fixed;inset:0;z-index:20;pointer-events:none;}
-    #topPanel{position:fixed;top:12px;left:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:auto;z-index:40;}
-    button{border:0;border-radius:999px;padding:10px 14px;font-size:14px;font-weight:700;background:rgba(255,255,255,.95);box-shadow:0 3px 12px rgba(0,0,0,.3);}
-    #startBtn{background:#005bd3;color:#fff;} #stopBtn{background:#333;color:#fff;} #soundBtn{background:#00a36c;color:#fff;}
-    #status{position:fixed;left:12px;right:12px;bottom:16px;z-index:40;color:#fff;background:rgba(0,0,0,.74);border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.5;white-space:pre-wrap;pointer-events:none;}
-    #targetGuide{position:fixed;left:50%;top:52%;transform:translate(-50%,-50%);width:78vw;max-width:420px;aspect-ratio:90/55;z-index:30;border:3px dashed rgba(255,255,255,.82);border-radius:12px;display:none;pointer-events:none;}
-    #targetGuide::after{content:"登録した名刺をこの枠に合わせてください";position:absolute;left:0;right:0;bottom:-34px;text-align:center;color:#fff;font-size:13px;text-shadow:0 2px 5px rgba(0,0,0,.8);}
-    #foundBanner{position:fixed;top:74px;left:50%;transform:translateX(-50%);z-index:45;padding:10px 18px;border-radius:999px;background:rgba(0,91,211,.94);color:#fff;font-size:15px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.35);display:none;pointer-events:none;}
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    /* 重要：カメラ映像だけを全画面にする。AR用動画 #cardVideo には適用しない */
+    video:not(#cardVideo) {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      object-fit: cover !important;
+      z-index: 0 !important;
+      opacity: 1 !important;
+      display: block !important;
+      background: transparent !important;
+    }
+
+    /* AR平面に貼る動画素材。画面には直接表示しない */
+    #cardVideo {
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 1px !important;
+      height: 1px !important;
+      opacity: 0 !important;
+      z-index: -1 !important;
+      pointer-events: none !important;
+      background: transparent !important;
+    }
+
+    canvas.a-canvas {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 1 !important;
+      background: transparent !important;
+    }
+
+    a-scene {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      z-index: 1 !important;
+      background: transparent !important;
+    }
+
+    #ui {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    #topPanel {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 30;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #111;
+      background: rgba(255,255,255,0.94);
+      box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+    }
+
+    button:active { transform: scale(0.97); }
+    #startBtn { background: #005bd3; color: #fff; }
+    #stopBtn { background: #333; color: #fff; }
+    #soundBtn { background: #00a36c; color: #fff; }
+
+    #status {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 16px;
+      z-index: 30;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.74);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      pointer-events: none;
+    }
+
+    #targetGuide {
+      position: fixed;
+      left: 50%;
+      top: 52%;
+      transform: translate(-50%, -50%);
+      width: 78vw;
+      max-width: 420px;
+      aspect-ratio: 90 / 55;
+      z-index: 25;
+      border: 3px dashed rgba(255,255,255,0.82);
+      border-radius: 12px;
+      pointer-events: none;
+      display: none;
+    }
+
+    #targetGuide::after {
+      content: "登録した名刺をこの枠に合わせてください";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -34px;
+      text-align: center;
+      color: #fff;
+      font-size: 13px;
+      text-shadow: 0 2px 5px rgba(0,0,0,0.8);
+    }
+
+    #foundBanner {
+      position: fixed;
+      top: 74px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 35;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(0, 91, 211, 0.94);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+      display: none;
+      pointer-events: none;
+    }
   </style>
 </head>
+
 <body>
   <div id="ui">
     <div id="topPanel">
@@ -37,63 +177,257 @@
     <div id="status">初期化中です。</div>
   </div>
 
-  <a-scene id="arScene"
+  <a-scene
+    id="arScene"
     mindar-image="imageTargetSrc: ./business_card.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1;"
-    embedded color-space="sRGB"
+    embedded
+    color-space="sRGB"
     renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true; alpha: true; preserveDrawingBuffer: true"
-    vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
+
     <a-assets timeout="30000">
-      <video id="cardVideo" src="./business_card_video.mp4" preload="auto" loop muted playsinline webkit-playsinline crossorigin="anonymous"></video>
+      <video
+        id="cardVideo"
+        src="./business_card_video.mp4"
+        preload="auto"
+        loop
+        muted
+        playsinline
+        webkit-playsinline
+        crossorigin="anonymous">
+      </video>
     </a-assets>
-    <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
     <a-entity id="cardTarget" mindar-image-target="targetIndex: 0">
-      <a-video id="videoPlane" src="#cardVideo" width="1" height="0.611111" position="0 0 0.04" rotation="0 0 0" material="shader: flat; side: double; transparent: false;"></a-video>
+      <!-- 名刺実寸 横90mm 縦55mm。width=1 / height=55/90=0.611111 -->
+      <a-video
+        id="videoPlane"
+        src="#cardVideo"
+        width="1"
+        height="0.611111"
+        position="0 0 0.03"
+        rotation="0 0 0"
+        material="shader: flat; side: double; transparent: false;">
+      </a-video>
     </a-entity>
   </a-scene>
-<script>
-const sceneEl=document.querySelector('#arScene');
-const targetEl=document.querySelector('#cardTarget');
-const videoEl=document.querySelector('#cardVideo');
-const statusEl=document.querySelector('#status');
-const foundBanner=document.querySelector('#foundBanner');
-const guide=document.querySelector('#targetGuide');
-let sceneLoaded=false, arStarted=false, videoUnlocked=false;
-sceneEl.addEventListener('loaded',()=>{sceneLoaded=true;statusEl.textContent='準備完了です。確認ボタンで状態確認できます。';});
-videoEl.addEventListener('loadedmetadata',()=>{statusEl.textContent='動画メタデータを読み込みました。';});
-videoEl.addEventListener('error',()=>{statusEl.textContent='動画読み込みエラーです。確認ボタンでHTTPとerrorを見てください。';});
-async function waitSystem(){for(let i=0;i<50;i++){const s=sceneEl.systems['mindar-image-system']; if(s)return s; await new Promise(r=>setTimeout(r,200));} return null;}
-function putCameraBehind(){
- const vids=Array.from(document.querySelectorAll('video')).filter(v=>v.id!=='cardVideo');
- const cam=vids[0]; const canvas=document.querySelector('canvas');
- if(cam){cam.style.position='fixed';cam.style.inset='0';cam.style.width='100vw';cam.style.height='100vh';cam.style.objectFit='cover';cam.style.zIndex='0';cam.style.opacity='1';cam.style.display='block';}
- if(canvas){canvas.style.position='fixed';canvas.style.inset='0';canvas.style.width='100vw';canvas.style.height='100vh';canvas.style.zIndex='1';canvas.style.background='transparent';}
- videoEl.style.position='absolute';videoEl.style.left='-9999px';videoEl.style.top='-9999px';videoEl.style.width='1px';videoEl.style.height='1px';videoEl.style.opacity='0';
-}
-async function unlock(){if(videoUnlocked)return; try{videoEl.muted=true;videoEl.playsInline=true;await videoEl.play();videoEl.pause();videoEl.currentTime=0;videoUnlocked=true;}catch(e){}}
-document.querySelector('#checkBtn').onclick=async()=>{
- let msg='';
- msg+='video要素数: '+document.querySelectorAll('video').length+'\n';
- msg+='動画 readyState: '+videoEl.readyState+'\nnetworkState: '+videoEl.networkState+'\nerror: '+(videoEl.error?videoEl.error.code:'なし')+'\nvideoWidth: '+videoEl.videoWidth+'\nvideoHeight: '+videoEl.videoHeight+'\n\n';
- for(const f of ['./business_card.mind','./business_card_video.mp4']){try{const r=await fetch(f,{cache:'no-store'});msg+=f+' : HTTP '+r.status+' / '+(r.headers.get('content-type')||'')+'\n';}catch(e){msg+=f+' : fetch失敗\n';}}
- msg+='\nMindARシステム: '+(sceneEl.systems['mindar-image-system']?'OK':'NG');
- statusEl.textContent=msg; putCameraBehind();
-};
-document.querySelector('#startBtn').onclick=async()=>{
- try{
-  if(!window.isSecureContext){statusEl.textContent='HTTPSで開いてください。';return;}
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){statusEl.textContent='このブラウザではカメラAPIが使えません。';return;}
-  if(!sceneLoaded){statusEl.textContent='ARシーン読み込み待ちです。';return;}
-  const system=await waitSystem(); if(!system){statusEl.textContent='MindARシステムが見つかりません。';return;}
-  await unlock(); guide.style.display='block'; statusEl.textContent='カメラ起動中です。';
-  await system.start(); arStarted=true; putCameraBehind(); setTimeout(putCameraBehind,500); setTimeout(putCameraBehind,1200);
-  statusEl.textContent='探索中です。名刺を中央に入れてください。';
- }catch(e){statusEl.textContent='カメラ開始に失敗しました。\n'+(e.message||String(e));}
-};
-document.querySelector('#stopBtn').onclick=()=>{const s=sceneEl.systems['mindar-image-system']; if(s)s.stop(); arStarted=false; videoEl.pause(); guide.style.display='none'; foundBanner.style.display='none'; statusEl.textContent='停止しました。';};
-document.querySelector('#soundBtn').onclick=async()=>{videoEl.muted=!videoEl.muted; document.querySelector('#soundBtn').textContent=videoEl.muted?'音ON':'音OFF'; try{await videoEl.play();}catch(e){} statusEl.textContent=videoEl.muted?'ミュートです。':'音ONです。';};
-document.querySelector('#replayBtn').onclick=async()=>{videoEl.currentTime=0; try{await videoEl.play(); statusEl.textContent='動画を最初から再生しました。';}catch(e){statusEl.textContent='動画再生NG。確認ボタンで動画状態を見てください。';}};
-targetEl.addEventListener('targetFound',async()=>{guide.style.display='none'; foundBanner.style.display='block'; try{videoEl.currentTime=0; await videoEl.play(); statusEl.textContent='名刺に合わせて動画を再生しています。';}catch(e){statusEl.textContent='名刺は認識しましたが動画再生NGです。動画を最初からを押してください。';} setTimeout(()=>foundBanner.style.display='none',2500);});
-targetEl.addEventListener('targetLost',()=>{if(!arStarted)return; videoEl.pause(); guide.style.display='block'; statusEl.textContent='名刺を見失いました。もう一度、名刺を中央に入れてください。';});
-</script>
+
+  <script>
+    const sceneEl = document.querySelector('#arScene');
+    const cardTargetEl = document.querySelector('#cardTarget');
+    const videoEl = document.querySelector('#cardVideo');
+
+    const startBtn = document.querySelector('#startBtn');
+    const stopBtn = document.querySelector('#stopBtn');
+    const soundBtn = document.querySelector('#soundBtn');
+    const replayBtn = document.querySelector('#replayBtn');
+    const checkBtn = document.querySelector('#checkBtn');
+
+    const statusEl = document.querySelector('#status');
+    const targetGuide = document.querySelector('#targetGuide');
+    const foundBanner = document.querySelector('#foundBanner');
+
+    let sceneLoaded = false;
+    let arStarted = false;
+    let videoUnlocked = false;
+
+    window.addEventListener('load', () => {
+      statusEl.textContent = 'ページを読み込みました。ARシーンの初期化を待っています。';
+    });
+
+    sceneEl.addEventListener('loaded', () => {
+      sceneLoaded = true;
+      statusEl.textContent = '準備完了です。確認ボタンでファイル状態を確認できます。';
+    });
+
+    videoEl.addEventListener('loadedmetadata', () => {
+      statusEl.textContent = '動画メタデータを読み込みました。カメラ開始を押してください。';
+    });
+
+    videoEl.addEventListener('error', () => {
+      const err = videoEl.error;
+      statusEl.textContent = '動画読み込みエラーです。business_card_video.mp4 の形式、ファイル名、配置を確認してください。\nerror code: ' + (err ? err.code : '不明');
+    });
+
+    async function waitForMindARSystem() {
+      for (let i = 0; i < 50; i++) {
+        const system = sceneEl.systems['mindar-image-system'];
+        if (system) return system;
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      return null;
+    }
+
+    async function unlockVideoOnce() {
+      if (videoUnlocked) return;
+      try {
+        videoEl.muted = true;
+        videoEl.playsInline = true;
+        await videoEl.play();
+        videoEl.pause();
+        videoEl.currentTime = 0;
+        videoUnlocked = true;
+      } catch (e) {
+        console.log('video unlock failed', e);
+      }
+    }
+
+    function fixCameraVisualLayer() {
+      const videos = Array.from(document.querySelectorAll('video'));
+      const cameraVideo = videos.find(v => v.id !== 'cardVideo');
+      const canvas = document.querySelector('canvas');
+
+      if (cameraVideo) {
+        cameraVideo.style.position = 'fixed';
+        cameraVideo.style.top = '0';
+        cameraVideo.style.left = '0';
+        cameraVideo.style.width = '100vw';
+        cameraVideo.style.height = '100vh';
+        cameraVideo.style.objectFit = 'cover';
+        cameraVideo.style.zIndex = '0';
+        cameraVideo.style.opacity = '1';
+        cameraVideo.style.display = 'block';
+        cameraVideo.style.background = 'transparent';
+      }
+
+      videoEl.style.position = 'absolute';
+      videoEl.style.width = '1px';
+      videoEl.style.height = '1px';
+      videoEl.style.opacity = '0';
+      videoEl.style.zIndex = '-1';
+      videoEl.style.pointerEvents = 'none';
+
+      if (canvas) {
+        canvas.style.position = 'fixed';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100vw';
+        canvas.style.height = '100vh';
+        canvas.style.zIndex = '1';
+        canvas.style.background = 'transparent';
+      }
+    }
+
+    async function checkFilesAndSystem() {
+      let message = '';
+      message += 'URL:\n' + location.href + '\n\n';
+      message += 'HTTPS / Secure Context:\n' + (window.isSecureContext ? 'OK' : 'NG') + '\n\n';
+      message += 'カメラAPI:\n' + ((navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ? 'OK' : 'NG') + '\n\n';
+      message += 'AFRAME:\n' + (window.AFRAME ? 'OK' : 'NG') + '\n\n';
+      message += 'MindARコンポーネント登録:\n' + ((window.AFRAME && AFRAME.components && AFRAME.components['mindar-image-target']) ? 'OK: mindar-image-target あり' : 'NG: mindar-image-target なし') + '\n\n';
+      message += 'video要素数:\n' + document.querySelectorAll('video').length + '\n\n';
+      message += '動画状態:\nreadyState: ' + videoEl.readyState + '\nnetworkState: ' + videoEl.networkState + '\nmuted: ' + videoEl.muted + '\npaused: ' + videoEl.paused + '\nerror: ' + (videoEl.error ? videoEl.error.code : 'なし') + '\n\n';
+      message += 'ファイル確認:\n';
+
+      for (const file of ['./business_card.mind', './business_card_video.mp4']) {
+        try {
+          const res = await fetch(file, { cache: 'no-store' });
+          message += file + ' : HTTP ' + res.status + '\n';
+        } catch (e) {
+          message += file + ' : fetch失敗\n';
+        }
+      }
+
+      const system = sceneEl.systems['mindar-image-system'];
+      message += '\nMindARシステム:\n' + (system ? 'OK: 見つかりました' : 'NG: 見つかりません');
+      statusEl.textContent = message;
+      fixCameraVisualLayer();
+    }
+
+    checkBtn.addEventListener('click', checkFilesAndSystem);
+
+    startBtn.addEventListener('click', async () => {
+      try {
+        if (!window.isSecureContext) {
+          statusEl.textContent = 'HTTPSではありません。GitHub Pagesの https:// URLで開いてください。';
+          return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          statusEl.textContent = 'このブラウザではカメラAPIが使えません。Android Chrome または Safari で試してください。';
+          return;
+        }
+        if (!sceneLoaded) {
+          statusEl.textContent = 'ARシーンの読み込みがまだ完了していません。少し待つか、確認ボタンを押してください。';
+          return;
+        }
+
+        const mindarSystem = await waitForMindARSystem();
+        if (!mindarSystem) {
+          statusEl.textContent = 'MindARシステムが見つかりません。scriptタグ、CDN、GitHub Pages URLを確認してください。';
+          return;
+        }
+
+        await unlockVideoOnce();
+
+        targetGuide.style.display = 'block';
+        statusEl.textContent = 'カメラを起動しています。登録した名刺を枠に合わせてください。';
+
+        await mindarSystem.start();
+        arStarted = true;
+
+        setTimeout(fixCameraVisualLayer, 200);
+        setTimeout(fixCameraVisualLayer, 800);
+
+        statusEl.textContent = '探索中です。business_card.mind に登録した名刺を画面中央に入れてください。';
+      } catch (error) {
+        console.error(error);
+        statusEl.textContent = 'カメラ開始に失敗しました。\n' + (error.message || String(error));
+      }
+    });
+
+    stopBtn.addEventListener('click', () => {
+      const system = sceneEl.systems['mindar-image-system'];
+      if (system) system.stop();
+      arStarted = false;
+      videoEl.pause();
+      targetGuide.style.display = 'none';
+      foundBanner.style.display = 'none';
+      statusEl.textContent = '停止しました。';
+    });
+
+    soundBtn.addEventListener('click', async () => {
+      videoEl.muted = !videoEl.muted;
+      soundBtn.textContent = videoEl.muted ? '音ON' : '音OFF';
+      try { await videoEl.play(); } catch(e) { console.log(e); }
+      statusEl.textContent = videoEl.muted ? '動画をミュートにしました。' : '動画の音をONにしました。';
+    });
+
+    replayBtn.addEventListener('click', async () => {
+      videoEl.currentTime = 0;
+      try {
+        await videoEl.play();
+        statusEl.textContent = '動画を最初から再生しました。';
+      } catch(e) {
+        console.log(e);
+        statusEl.textContent = '動画再生ができません。確認ボタンで動画状態と HTTP 200 を確認してください。';
+      }
+    });
+
+    cardTargetEl.addEventListener('targetFound', async () => {
+      targetGuide.style.display = 'none';
+      foundBanner.style.display = 'block';
+      foundBanner.textContent = '名刺を認識しました';
+      try {
+        videoEl.currentTime = 0;
+        await videoEl.play();
+        statusEl.textContent = '名刺に合わせて動画を再生しています。';
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = '名刺は認識しましたが、動画再生がブロックされました。動画を最初からボタンを押してください。';
+      }
+      setTimeout(() => { foundBanner.style.display = 'none'; }, 2500);
+    });
+
+    cardTargetEl.addEventListener('targetLost', () => {
+      if (!arStarted) return;
+      videoEl.pause();
+      foundBanner.style.display = 'none';
+      targetGuide.style.display = 'block';
+      statusEl.textContent = '名刺を見失いました。もう一度、名刺を画面中央に入れてください。';
+    });
+  </script>
 </body>
 </html>
