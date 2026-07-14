@@ -4,10 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>名刺AR動画再生アプリ 90x55 切替＆撮影 修正版</title>
+  <title>名刺AR動画再生アプリ 90x55 ブレ補正＆マスク版</title>
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <script>
+    // ========= 新規追加：透明なマスク（裏側を隠す）を作るコンポーネント =========
+    AFRAME.registerComponent('depth-mask', {
+      init: function () {
+        const applyMask = (mesh) => {
+          if (mesh) {
+            mesh.material.colorWrite = false; // 色を塗らない（透明になる）
+            mesh.renderOrder = -1;            // 先に深度（奥行き）だけを計算させる
+          }
+        };
+        applyMask(this.el.getObject3D('mesh'));
+        this.el.addEventListener('model-loaded', () => {
+          applyMask(this.el.getObject3D('mesh'));
+        });
+      }
+    });
+  </script>
 
   <style>
     html, body {
@@ -179,9 +197,10 @@
     <div id="status">初期化中です。</div>
   </div>
 
+  <!-- 修正点: filterMinCF と filterBeta を追加してプルプルを強力に抑制 -->
   <a-scene
     id="arScene"
-    mindar-image="imageTargetSrc: ./business_card.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1;"
+    mindar-image="imageTargetSrc: ./business_card.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;"
     embedded
     color-space="sRGB"
     renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true; alpha: true; preserveDrawingBuffer: true"
@@ -204,9 +223,12 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity id="cardTarget" mindar-image-target="targetIndex: 0">
-      <!-- 角度と位置をコントロールするためのラッパー -->
+      
+      <!-- 新規追加: 名刺の奥側を隠す「透明なマスク板」 -->
+      <!-- widthとheightを名刺より大きくし、少し奥(z=-0.01)に配置 -->
+      <a-plane position="0 0 -0.01" width="3" height="3" depth-mask></a-plane>
+
       <a-entity id="videoWrapper" position="0 0 0.03" rotation="0 0 0">
-        <!-- 名刺実寸 横90mm 縦55mm。width=1 / height=0.611111 -->
         <a-video
           id="videoPlane"
           src="#cardVideo"
@@ -257,18 +279,16 @@
         modeBtn.textContent = '平面モードへ切替';
         modeBtn.style.background = '#005bd3';
         
-        // 修正点1: 逆さまになるのを防ぐため、-90度ではなく 90度回転させる
         videoWrapper.setAttribute('position', '0 0.3055 0.03');
         videoWrapper.setAttribute('rotation', '90 0 0');
         
-        // 動画は初期状態で「名刺の下」に隠しておく
-        videoPlane.setAttribute('position', '0 -0.3055 0');
+        // 動画は初期状態で「マスク板の完全に裏側」に隠しておく
+        videoPlane.setAttribute('position', '0 -0.35 0');
         statusEl.textContent = '立体モードに切り替えました。';
       } else {
         modeBtn.textContent = '立体モードへ切替';
         modeBtn.style.background = '#ff9800';
         
-        // 従来の平面モード
         videoWrapper.setAttribute('position', '0 0 0.03');
         videoWrapper.setAttribute('rotation', '0 0 0');
         videoPlane.setAttribute('position', '0 0 0');
@@ -288,7 +308,6 @@
         return;
       }
 
-      // 修正点2: キャプチャ直前にA-Frameの画面を強制的に再描画して、ARが透明になるのを防ぐ
       if (sceneEl.renderer && sceneEl.camera) {
         sceneEl.renderer.render(sceneEl.object3D, sceneEl.camera);
       }
@@ -298,7 +317,6 @@
       compCanvas.height = arCanvas.height;
       const ctx = compCanvas.getContext('2d');
 
-      // カメラ映像を描画
       const videoRatio = cameraVideo.videoWidth / cameraVideo.videoHeight;
       const canvasRatio = compCanvas.width / compCanvas.height;
       let drawWidth, drawHeight, offsetX, offsetY;
@@ -316,11 +334,8 @@
       }
 
       ctx.drawImage(cameraVideo, offsetX, offsetY, drawWidth, drawHeight);
-
-      // AR映像を描画
       ctx.drawImage(arCanvas, 0, 0, compCanvas.width, compCanvas.height);
 
-      // 保存
       const dataURL = compCanvas.toDataURL('image/png');
       const link = document.createElement('a');
       const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
@@ -439,7 +454,8 @@
 
       if (isVerticalMode) {
         statusEl.textContent = '動画が立ち上がります...';
-        videoPlane.setAttribute('position', '0 -0.3055 0');
+        // マスク板の完全に裏側からスタート
+        videoPlane.setAttribute('position', '0 -0.35 0');
         
         videoPlane.setAttribute('animation', {
           property: 'position',
@@ -480,7 +496,7 @@
 
       if (isVerticalMode) {
         videoPlane.removeAttribute('animation');
-        videoPlane.setAttribute('position', '0 -0.3055 0');
+        videoPlane.setAttribute('position', '0 -0.35 0'); // 見失ったら裏側にリセット
       }
     });
   </script>
