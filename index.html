@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>名刺AR動画再生アプリ 90x55 切替＆撮影対応版</title>
+  <title>名刺AR動画再生アプリ 90x55 切替＆撮影 修正版</title>
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
@@ -99,8 +99,6 @@
     #startBtn { background: #005bd3; color: #fff; }
     #stopBtn { background: #333; color: #fff; }
     #soundBtn { background: #00a36c; color: #fff; }
-    
-    /* 新規追加ボタンのスタイル */
     #modeBtn { background: #ff9800; color: #fff; }
     #captureBtn { background: #e91e63; color: #fff; }
 
@@ -243,7 +241,7 @@
     let sceneLoaded = false;
     let arStarted = false;
     let videoUnlocked = false;
-    let isVerticalMode = false; // モード管理フラグ
+    let isVerticalMode = false;
 
     window.addEventListener('load', () => {
       statusEl.textContent = '準備完了です。カメラ開始を押してください。';
@@ -251,17 +249,18 @@
 
     sceneEl.addEventListener('loaded', () => { sceneLoaded = true; });
 
-    // ========= 新規追加：モード切替処理 =========
+    // ========= モード切替処理 =========
     modeBtn.addEventListener('click', () => {
       isVerticalMode = !isVerticalMode;
       
       if (isVerticalMode) {
         modeBtn.textContent = '平面モードへ切替';
-        modeBtn.style.background = '#005bd3'; // 色を変えて状態をわかりやすく
+        modeBtn.style.background = '#005bd3';
         
-        // 名刺の上辺（高さ0.6111の中心から上が 0.3055）にラッパーを移動し、-90度回転して立てる
+        // 修正点1: 逆さまになるのを防ぐため、-90度ではなく 90度回転させる
         videoWrapper.setAttribute('position', '0 0.3055 0.03');
-        videoWrapper.setAttribute('rotation', '-90 0 0');
+        videoWrapper.setAttribute('rotation', '90 0 0');
+        
         // 動画は初期状態で「名刺の下」に隠しておく
         videoPlane.setAttribute('position', '0 -0.3055 0');
         statusEl.textContent = '立体モードに切り替えました。';
@@ -269,16 +268,16 @@
         modeBtn.textContent = '立体モードへ切替';
         modeBtn.style.background = '#ff9800';
         
-        // 従来の平面モード（名刺の上にペタッと貼る）
+        // 従来の平面モード
         videoWrapper.setAttribute('position', '0 0 0.03');
         videoWrapper.setAttribute('rotation', '0 0 0');
         videoPlane.setAttribute('position', '0 0 0');
-        videoPlane.removeAttribute('animation'); // アニメーション解除
+        videoPlane.removeAttribute('animation');
         statusEl.textContent = '平面モードに切り替えました。';
       }
     });
 
-    // ========= 新規追加：撮影・保存処理 =========
+    // ========= 撮影・保存処理 =========
     captureBtn.addEventListener('click', () => {
       const arCanvas = document.querySelector('canvas.a-canvas');
       const cameraVideos = Array.from(document.querySelectorAll('video'));
@@ -289,13 +288,17 @@
         return;
       }
 
-      // 合成用の裏キャンバスを作成
+      // 修正点2: キャプチャ直前にA-Frameの画面を強制的に再描画して、ARが透明になるのを防ぐ
+      if (sceneEl.renderer && sceneEl.camera) {
+        sceneEl.renderer.render(sceneEl.object3D, sceneEl.camera);
+      }
+
       const compCanvas = document.createElement('canvas');
       compCanvas.width = arCanvas.width;
       compCanvas.height = arCanvas.height;
       const ctx = compCanvas.getContext('2d');
 
-      // 1. カメラ映像を画面いっぱいに描画 (object-fit: coverの計算)
+      // カメラ映像を描画
       const videoRatio = cameraVideo.videoWidth / cameraVideo.videoHeight;
       const canvasRatio = compCanvas.width / compCanvas.height;
       let drawWidth, drawHeight, offsetX, offsetY;
@@ -314,10 +317,10 @@
 
       ctx.drawImage(cameraVideo, offsetX, offsetY, drawWidth, drawHeight);
 
-      // 2. その上にARコンテンツ（動画）を描画
+      // AR映像を描画
       ctx.drawImage(arCanvas, 0, 0, compCanvas.width, compCanvas.height);
 
-      // 3. 画像化してダウンロードさせる
+      // 保存
       const dataURL = compCanvas.toDataURL('image/png');
       const link = document.createElement('a');
       const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
@@ -426,7 +429,6 @@
       try { await videoEl.play(); } catch(e) {}
     });
 
-    // アニメーション完了イベント用のハンドラ
     let playAfterAnimHandler = null;
 
     cardTargetEl.addEventListener('targetFound', async () => {
@@ -437,24 +439,20 @@
 
       if (isVerticalMode) {
         statusEl.textContent = '動画が立ち上がります...';
-        // 初期位置（名刺の下）にリセット
         videoPlane.setAttribute('position', '0 -0.3055 0');
         
-        // A-Frameのアニメーション機能でスライドさせる
         videoPlane.setAttribute('animation', {
           property: 'position',
-          to: '0 0.3055 0', // 立ち上がった位置
-          dur: 1000,        // 1秒かけて出現
+          to: '0 0.3055 0',
+          dur: 1000,
           easing: 'easeOutQuad',
           loop: false
         });
 
-        // 以前のリスナーが残っていれば消す
         if (playAfterAnimHandler) {
           videoPlane.removeEventListener('animationcomplete', playAfterAnimHandler);
         }
         
-        // アニメーションが終わったら再生開始
         playAfterAnimHandler = async () => {
           try {
             await videoEl.play();
@@ -464,7 +462,6 @@
         videoPlane.addEventListener('animationcomplete', playAfterAnimHandler, { once: true });
 
       } else {
-        // 平面モードの場合はすぐ再生
         try {
           await videoEl.play();
           statusEl.textContent = '再生を開始しました。';
@@ -481,7 +478,6 @@
       targetGuide.style.display = 'block';
       statusEl.textContent = '名刺を見失いました。もう一度枠に入れてください。';
 
-      // 立体モードの場合、見失ったらアニメーションをリセットして初期位置に戻す
       if (isVerticalMode) {
         videoPlane.removeAttribute('animation');
         videoPlane.setAttribute('position', '0 -0.3055 0');
