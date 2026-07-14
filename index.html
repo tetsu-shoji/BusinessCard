@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>名刺AR動画再生アプリ 90x55版</title>
+  <title>名刺AR動画再生アプリ 90x55 修正版</title>
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
@@ -20,7 +20,8 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    video {
+    /* 重要：カメラ映像だけを全画面にする。AR用動画 #cardVideo には適用しない */
+    video:not(#cardVideo) {
       position: fixed !important;
       top: 0 !important;
       left: 0 !important;
@@ -28,6 +29,22 @@
       height: 100vh !important;
       object-fit: cover !important;
       z-index: 0 !important;
+      opacity: 1 !important;
+      display: block !important;
+      background: transparent !important;
+    }
+
+    /* AR平面に貼る動画素材。画面には直接表示しない */
+    #cardVideo {
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 1px !important;
+      height: 1px !important;
+      opacity: 0 !important;
+      z-index: -1 !important;
+      pointer-events: none !important;
+      background: transparent !important;
     }
 
     canvas.a-canvas {
@@ -169,8 +186,7 @@
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false">
 
-    <a-assets>
-      <!-- 動画ファイルはGitHub上で index.html と同じ階層に置いてください -->
+    <a-assets timeout="30000">
       <video
         id="cardVideo"
         src="./business_card_video.mp4"
@@ -192,7 +208,7 @@
         src="#cardVideo"
         width="1"
         height="0.611111"
-        position="0 0 0.02"
+        position="0 0 0.03"
         rotation="0 0 0"
         material="shader: flat; side: double; transparent: false;">
       </a-video>
@@ -227,6 +243,15 @@
       statusEl.textContent = '準備完了です。確認ボタンでファイル状態を確認できます。';
     });
 
+    videoEl.addEventListener('loadedmetadata', () => {
+      statusEl.textContent = '動画メタデータを読み込みました。カメラ開始を押してください。';
+    });
+
+    videoEl.addEventListener('error', () => {
+      const err = videoEl.error;
+      statusEl.textContent = '動画読み込みエラーです。business_card_video.mp4 の形式、ファイル名、配置を確認してください。\nerror code: ' + (err ? err.code : '不明');
+    });
+
     async function waitForMindARSystem() {
       for (let i = 0; i < 50; i++) {
         const system = sceneEl.systems['mindar-image-system'];
@@ -240,6 +265,7 @@
       if (videoUnlocked) return;
       try {
         videoEl.muted = true;
+        videoEl.playsInline = true;
         await videoEl.play();
         videoEl.pause();
         videoEl.currentTime = 0;
@@ -250,8 +276,10 @@
     }
 
     function fixCameraVisualLayer() {
-      const cameraVideo = Array.from(document.querySelectorAll('video')).find(v => v.id !== 'cardVideo');
+      const videos = Array.from(document.querySelectorAll('video'));
+      const cameraVideo = videos.find(v => v.id !== 'cardVideo');
       const canvas = document.querySelector('canvas');
+
       if (cameraVideo) {
         cameraVideo.style.position = 'fixed';
         cameraVideo.style.top = '0';
@@ -262,7 +290,16 @@
         cameraVideo.style.zIndex = '0';
         cameraVideo.style.opacity = '1';
         cameraVideo.style.display = 'block';
+        cameraVideo.style.background = 'transparent';
       }
+
+      videoEl.style.position = 'absolute';
+      videoEl.style.width = '1px';
+      videoEl.style.height = '1px';
+      videoEl.style.opacity = '0';
+      videoEl.style.zIndex = '-1';
+      videoEl.style.pointerEvents = 'none';
+
       if (canvas) {
         canvas.style.position = 'fixed';
         canvas.style.top = '0';
@@ -281,8 +318,10 @@
       message += 'カメラAPI:\n' + ((navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ? 'OK' : 'NG') + '\n\n';
       message += 'AFRAME:\n' + (window.AFRAME ? 'OK' : 'NG') + '\n\n';
       message += 'MindARコンポーネント登録:\n' + ((window.AFRAME && AFRAME.components && AFRAME.components['mindar-image-target']) ? 'OK: mindar-image-target あり' : 'NG: mindar-image-target なし') + '\n\n';
-      message += '動画状態:\nreadyState: ' + videoEl.readyState + '\nmuted: ' + videoEl.muted + '\npaused: ' + videoEl.paused + '\n\n';
+      message += 'video要素数:\n' + document.querySelectorAll('video').length + '\n\n';
+      message += '動画状態:\nreadyState: ' + videoEl.readyState + '\nnetworkState: ' + videoEl.networkState + '\nmuted: ' + videoEl.muted + '\npaused: ' + videoEl.paused + '\nerror: ' + (videoEl.error ? videoEl.error.code : 'なし') + '\n\n';
       message += 'ファイル確認:\n';
+
       for (const file of ['./business_card.mind', './business_card_video.mp4']) {
         try {
           const res = await fetch(file, { cache: 'no-store' });
@@ -291,9 +330,11 @@
           message += file + ' : fetch失敗\n';
         }
       }
+
       const system = sceneEl.systems['mindar-image-system'];
       message += '\nMindARシステム:\n' + (system ? 'OK: 見つかりました' : 'NG: 見つかりません');
       statusEl.textContent = message;
+      fixCameraVisualLayer();
     }
 
     checkBtn.addEventListener('click', checkFilesAndSystem);
@@ -327,7 +368,8 @@
         await mindarSystem.start();
         arStarted = true;
 
-        setTimeout(fixCameraVisualLayer, 500);
+        setTimeout(fixCameraVisualLayer, 200);
+        setTimeout(fixCameraVisualLayer, 800);
 
         statusEl.textContent = '探索中です。business_card.mind に登録した名刺を画面中央に入れてください。';
       } catch (error) {
@@ -349,14 +391,19 @@
     soundBtn.addEventListener('click', async () => {
       videoEl.muted = !videoEl.muted;
       soundBtn.textContent = videoEl.muted ? '音ON' : '音OFF';
-      try { await videoEl.play(); } catch(e) {}
+      try { await videoEl.play(); } catch(e) { console.log(e); }
       statusEl.textContent = videoEl.muted ? '動画をミュートにしました。' : '動画の音をONにしました。';
     });
 
     replayBtn.addEventListener('click', async () => {
       videoEl.currentTime = 0;
-      try { await videoEl.play(); } catch(e) {}
-      statusEl.textContent = '動画を最初から再生しました。';
+      try {
+        await videoEl.play();
+        statusEl.textContent = '動画を最初から再生しました。';
+      } catch(e) {
+        console.log(e);
+        statusEl.textContent = '動画再生ができません。確認ボタンで動画状態と HTTP 200 を確認してください。';
+      }
     });
 
     cardTargetEl.addEventListener('targetFound', async () => {
