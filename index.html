@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>名刺AR画像表示アプリ</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>名刺AR動画再生アプリ 90x55版</title>
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
@@ -27,8 +28,6 @@
       height: 100vh !important;
       object-fit: cover !important;
       z-index: 0 !important;
-      opacity: 1 !important;
-      display: block !important;
     }
 
     canvas.a-canvas {
@@ -83,6 +82,7 @@
     button:active { transform: scale(0.97); }
     #startBtn { background: #005bd3; color: #fff; }
     #stopBtn { background: #333; color: #fff; }
+    #soundBtn { background: #00a36c; color: #fff; }
 
     #status {
       position: fixed;
@@ -107,7 +107,7 @@
       transform: translate(-50%, -50%);
       width: 78vw;
       max-width: 420px;
-      aspect-ratio: 91 / 55;
+      aspect-ratio: 90 / 55;
       z-index: 25;
       border: 3px dashed rgba(255,255,255,0.82);
       border-radius: 12px;
@@ -151,6 +151,8 @@
     <div id="topPanel">
       <button id="startBtn">カメラ開始</button>
       <button id="stopBtn">停止</button>
+      <button id="soundBtn">音ON</button>
+      <button id="replayBtn">動画を最初から</button>
       <button id="checkBtn">確認</button>
     </div>
     <div id="foundBanner">名刺を認識しました</div>
@@ -168,37 +170,53 @@
     device-orientation-permission-ui="enabled: false">
 
     <a-assets>
-      <img id="overlayImage" src="./business_card_overlay.png" crossorigin="anonymous">
+      <!-- 動画ファイルはGitHub上で index.html と同じ階層に置いてください -->
+      <video
+        id="cardVideo"
+        src="./business_card_video.mp4"
+        preload="auto"
+        loop
+        muted
+        playsinline
+        webkit-playsinline
+        crossorigin="anonymous">
+      </video>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity id="cardTarget" mindar-image-target="targetIndex: 0">
-      <!-- 日本の標準的な名刺 91mm x 55mm の比率。width=1 / height=55/91=0.604 -->
-      <a-image
-        id="overlayPlane"
-        src="#overlayImage"
+      <!-- 名刺実寸 横90mm 縦55mm。width=1 / height=55/90=0.611111 -->
+      <a-video
+        id="videoPlane"
+        src="#cardVideo"
         width="1"
-        height="0.604"
+        height="0.611111"
         position="0 0 0.02"
         rotation="0 0 0"
-        material="shader: flat; side: double; transparent: true;">
-      </a-image>
+        material="shader: flat; side: double; transparent: false;">
+      </a-video>
     </a-entity>
   </a-scene>
 
   <script>
     const sceneEl = document.querySelector('#arScene');
     const cardTargetEl = document.querySelector('#cardTarget');
+    const videoEl = document.querySelector('#cardVideo');
+
     const startBtn = document.querySelector('#startBtn');
     const stopBtn = document.querySelector('#stopBtn');
+    const soundBtn = document.querySelector('#soundBtn');
+    const replayBtn = document.querySelector('#replayBtn');
     const checkBtn = document.querySelector('#checkBtn');
+
     const statusEl = document.querySelector('#status');
     const targetGuide = document.querySelector('#targetGuide');
     const foundBanner = document.querySelector('#foundBanner');
 
     let sceneLoaded = false;
     let arStarted = false;
+    let videoUnlocked = false;
 
     window.addEventListener('load', () => {
       statusEl.textContent = 'ページを読み込みました。ARシーンの初期化を待っています。';
@@ -218,8 +236,21 @@
       return null;
     }
 
+    async function unlockVideoOnce() {
+      if (videoUnlocked) return;
+      try {
+        videoEl.muted = true;
+        await videoEl.play();
+        videoEl.pause();
+        videoEl.currentTime = 0;
+        videoUnlocked = true;
+      } catch (e) {
+        console.log('video unlock failed', e);
+      }
+    }
+
     function fixCameraVisualLayer() {
-      const cameraVideo = Array.from(document.querySelectorAll('video')).find(v => !v.id);
+      const cameraVideo = Array.from(document.querySelectorAll('video')).find(v => v.id !== 'cardVideo');
       const canvas = document.querySelector('canvas');
       if (cameraVideo) {
         cameraVideo.style.position = 'fixed';
@@ -250,8 +281,9 @@
       message += 'カメラAPI:\n' + ((navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ? 'OK' : 'NG') + '\n\n';
       message += 'AFRAME:\n' + (window.AFRAME ? 'OK' : 'NG') + '\n\n';
       message += 'MindARコンポーネント登録:\n' + ((window.AFRAME && AFRAME.components && AFRAME.components['mindar-image-target']) ? 'OK: mindar-image-target あり' : 'NG: mindar-image-target なし') + '\n\n';
+      message += '動画状態:\nreadyState: ' + videoEl.readyState + '\nmuted: ' + videoEl.muted + '\npaused: ' + videoEl.paused + '\n\n';
       message += 'ファイル確認:\n';
-      for (const file of ['./business_card.mind', './business_card_overlay.png']) {
+      for (const file of ['./business_card.mind', './business_card_video.mp4']) {
         try {
           const res = await fetch(file, { cache: 'no-store' });
           message += file + ' : HTTP ' + res.status + '\n';
@@ -280,16 +312,23 @@
           statusEl.textContent = 'ARシーンの読み込みがまだ完了していません。少し待つか、確認ボタンを押してください。';
           return;
         }
+
         const mindarSystem = await waitForMindARSystem();
         if (!mindarSystem) {
           statusEl.textContent = 'MindARシステムが見つかりません。scriptタグ、CDN、GitHub Pages URLを確認してください。';
           return;
         }
+
+        await unlockVideoOnce();
+
         targetGuide.style.display = 'block';
         statusEl.textContent = 'カメラを起動しています。登録した名刺を枠に合わせてください。';
+
         await mindarSystem.start();
         arStarted = true;
+
         setTimeout(fixCameraVisualLayer, 500);
+
         statusEl.textContent = '探索中です。business_card.mind に登録した名刺を画面中央に入れてください。';
       } catch (error) {
         console.error(error);
@@ -301,20 +340,43 @@
       const system = sceneEl.systems['mindar-image-system'];
       if (system) system.stop();
       arStarted = false;
+      videoEl.pause();
       targetGuide.style.display = 'none';
       foundBanner.style.display = 'none';
       statusEl.textContent = '停止しました。';
     });
 
-    cardTargetEl.addEventListener('targetFound', () => {
+    soundBtn.addEventListener('click', async () => {
+      videoEl.muted = !videoEl.muted;
+      soundBtn.textContent = videoEl.muted ? '音ON' : '音OFF';
+      try { await videoEl.play(); } catch(e) {}
+      statusEl.textContent = videoEl.muted ? '動画をミュートにしました。' : '動画の音をONにしました。';
+    });
+
+    replayBtn.addEventListener('click', async () => {
+      videoEl.currentTime = 0;
+      try { await videoEl.play(); } catch(e) {}
+      statusEl.textContent = '動画を最初から再生しました。';
+    });
+
+    cardTargetEl.addEventListener('targetFound', async () => {
       targetGuide.style.display = 'none';
       foundBanner.style.display = 'block';
-      statusEl.textContent = '名刺に合わせて添付画像を表示しています。';
+      foundBanner.textContent = '名刺を認識しました';
+      try {
+        videoEl.currentTime = 0;
+        await videoEl.play();
+        statusEl.textContent = '名刺に合わせて動画を再生しています。';
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = '名刺は認識しましたが、動画再生がブロックされました。動画を最初からボタンを押してください。';
+      }
       setTimeout(() => { foundBanner.style.display = 'none'; }, 2500);
     });
 
     cardTargetEl.addEventListener('targetLost', () => {
       if (!arStarted) return;
+      videoEl.pause();
       foundBanner.style.display = 'none';
       targetGuide.style.display = 'block';
       statusEl.textContent = '名刺を見失いました。もう一度、名刺を画面中央に入れてください。';
