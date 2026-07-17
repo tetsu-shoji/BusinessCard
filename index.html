@@ -4,8 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>名刺AR動画再生アプリ 90x55 ブレ補正＆棒人間ランナー版</title>
+  <title>名刺AR動画再生アプリ 90x55 棒人間ランナー版</title>
 
+  <!-- A-Frame -->
+  https://aframe.io/releases/1.5.0/aframe.min.jsscript>
+
+  <!-- MindAR -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <script>
@@ -27,7 +31,7 @@
       }
     });
 
-    // ========= 新規追加：名刺の4辺を走る棒人間コンポーネント =========
+    // ========= 名刺の4辺を走る棒人間コンポーネント =========
     AFRAME.registerComponent('business-card-runner', {
       schema: {
         cardWidth: { type: 'number', default: 1.0 },
@@ -43,7 +47,6 @@
         this.armRight = this.el.querySelector('.runner-arm-right');
         this.legLeft = this.el.querySelector('.runner-leg-left');
         this.legRight = this.el.querySelector('.runner-leg-right');
-
         this.head = this.el.querySelector('.runner-head');
         this.body = this.el.querySelector('.runner-body');
       },
@@ -101,12 +104,11 @@
           zRotation = 0;
         }
 
-        // 動画より少し手前に表示
         this.el.setAttribute('position', `${x} ${y} 0.10`);
         this.el.setAttribute('rotation', `0 0 ${zRotation}`);
 
-        // 手足を走っているように振る
         const swing = Math.sin(elapsed * 0.018) * 35;
+        const hop = Math.abs(Math.sin(elapsed * 0.018)) * 0.025;
 
         if (this.armLeft) {
           this.armLeft.setAttribute('rotation', `0 0 ${45 + swing}`);
@@ -124,11 +126,10 @@
           this.legRight.setAttribute('rotation', `0 0 ${25 + swing}`);
         }
 
-        // 少し上下に弾ませる
-        const hop = Math.abs(Math.sin(elapsed * 0.018)) * 0.025;
         if (this.body) {
           this.body.setAttribute('position', `0 ${0.18 + hop} 0`);
         }
+
         if (this.head) {
           this.head.setAttribute('position', `0 ${0.43 + hop} 0`);
         }
@@ -338,7 +339,7 @@
     mindar-image="imageTargetSrc: ./business_card.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.001; filterBeta: 0.01;"
     embedded
     color-space="sRGB"
-    renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true; alpha: true; preserveDrawingBuffer: true"
+    renderer="colorManagement: true; antialias: true; alpha: true; preserveDrawingBuffer: true"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false">
 
@@ -365,81 +366,67 @@
         </a-video>
       </a-entity>
 
-      <!-- 新規追加：名刺の4辺を走る小さい棒人間 -->
+      <!-- 名刺の4辺を走る小さい棒人間 -->
       <a-entity
         id="runner"
+        visible="true"
         scale="0.055 0.055 0.055"
         business-card-runner="cardWidth: 1; cardHeight: 0.611111; margin: 0.065; speed: 0.00033;">
 
-        <!-- 頭 -->
         <a-sphere
           class="runner-head"
           radius="0.105"
           position="0 0.43 0"
-          color="#fff176"
-          material="shader: standard; roughness: 0.35; metalness: 0.05;">
+          color="#fff176">
         </a-sphere>
 
-        <!-- 胴体 -->
         <a-cylinder
           class="runner-body"
           radius="0.032"
           height="0.38"
           position="0 0.18 0"
-          rotation="0 0 0"
-          color="#00e5ff"
-          material="shader: standard; roughness: 0.35; metalness: 0.05;">
+          color="#00e5ff">
         </a-cylinder>
 
-        <!-- 左腕 -->
         <a-cylinder
           class="runner-arm-left"
           radius="0.024"
           height="0.32"
           position="-0.13 0.23 0"
           rotation="0 0 45"
-          color="#ffffff"
-          material="shader: standard; roughness: 0.35; metalness: 0.05;">
+          color="#ffffff">
         </a-cylinder>
 
-        <!-- 右腕 -->
         <a-cylinder
           class="runner-arm-right"
           radius="0.024"
           height="0.32"
           position="0.13 0.23 0"
           rotation="0 0 -45"
-          color="#ffffff"
-          material="shader: standard; roughness: 0.35; metalness: 0.05;">
+          color="#ffffff">
         </a-cylinder>
 
-        <!-- 左脚 -->
         <a-cylinder
           class="runner-leg-left"
           radius="0.027"
           height="0.36"
           position="-0.08 -0.13 0"
           rotation="0 0 -25"
-          color="#ffffff"
-          material="shader: standard; roughness: 0.35; metalness: 0.05;">
+          color="#ffffff">
         </a-cylinder>
 
-        <!-- 右脚 -->
         <a-cylinder
           class="runner-leg-right"
           radius="0.027"
           height="0.36"
           position="0.08 -0.13 0"
           rotation="0 0 25"
-          color="#ffffff"
-          material="shader: standard; roughness: 0.35; metalness: 0.05;">
+          color="#ffffff">
         </a-cylinder>
 
-        <!-- 足元の小さい影 -->
         <a-circle
           radius="0.14"
           position="0 -0.34 -0.01"
-          rotation="0 0 0"
           color="#000000"
           opacity="0.28"
           material="shader: flat; transparent: true; side: double;">
@@ -472,6 +459,7 @@
     let arStarted = false;
     let videoUnlocked = false;
     let isVerticalMode = false;
+    let playAfterAnimHandler = null;
 
     window.addEventListener('load', () => {
       statusEl.textContent = '準備完了です。カメラ開始を押してください。';
@@ -492,22 +480,18 @@
         videoWrapper.setAttribute('position', '0 0.3055 0.03');
         videoWrapper.setAttribute('rotation', '90 0 0');
 
-        // 動画は初期状態でマスク板の裏側へ
         videoPlane.setAttribute('position', '0 -0.35 0');
         statusEl.textContent = '立体モードに切り替えました。';
-
-        // 棒人間は名刺の平面上を走らせたままにする
-        runnerEl.setAttribute('visible', 'true');
       } else {
         modeBtn.textContent = '立体モードへ切替';
         modeBtn.style.background = '#ff9800';
 
         videoWrapper.setAttribute('position', '0 0 0.03');
         videoWrapper.setAttribute('rotation', '0 0 0');
+
         videoPlane.setAttribute('position', '0 0 0');
         videoPlane.removeAttribute('animation');
 
-        runnerEl.setAttribute('visible', 'true');
         statusEl.textContent = '平面モードに切り替えました。';
       }
     });
@@ -564,10 +548,9 @@
       link.href = dataURL;
       link.click();
 
-      statusEl.textContent = '画像を保存しました！（端末によっては長押し保存が必要です）';
+      statusEl.textContent = '画像を保存しました。';
     });
 
-    // ========= MindARシステム待機 =========
     async function waitForMindARSystem() {
       for (let i = 0; i < 50; i++) {
         const system = sceneEl.systems['mindar-image-system'];
@@ -577,7 +560,6 @@
       return null;
     }
 
-    // ========= 動画再生許可を先に取得 =========
     async function unlockVideoOnce() {
       if (videoUnlocked) return;
 
@@ -593,7 +575,6 @@
       }
     }
 
-    // ========= カメラとARキャンバスの重なり補正 =========
     function fixCameraVisualLayer() {
       const videos = Array.from(document.querySelectorAll('video'));
       const cameraVideo = videos.find(v => v.id !== 'cardVideo');
@@ -627,13 +608,14 @@
       }
     }
 
-    // ========= カメラ開始 =========
     startBtn.addEventListener('click', async () => {
       try {
+        statusEl.textContent = 'カメラを起動しています...';
+
         const mindarSystem = await waitForMindARSystem();
 
         if (!mindarSystem) {
-          statusEl.textContent = 'MINDARシステムが見つかりません。ページを再読み込みしてください。';
+          statusEl.textContent = 'MINDARシステムが見つかりません。コードまたはmindファイルを確認してください。';
           return;
         }
 
@@ -653,11 +635,18 @@
         statusEl.textContent = '登録した名刺を画面中央に入れてください。';
       } catch (error) {
         console.error(error);
-        statusEl.textContent = 'カメラ開始に失敗しました。HTTPSで開いているか、カメラ許可が出ているか確認してください。';
+
+        statusEl.textContent =
+          'カメラ開始に失敗しました。\n' +
+          '確認してください：\n' +
+          '1. HTTPSのURLで開いているか\n' +
+          '2. カメラ許可を許可しているか\n' +
+          '3. business_card.mind が同じフォルダにあるか\n' +
+          '4. business_card_video.mp4 が同じフォルダにあるか\n' +
+          '5. iPhoneの場合はSafariで開いているか';
       }
     });
 
-    // ========= 停止 =========
     stopBtn.addEventListener('click', () => {
       const system = sceneEl.systems['mindar-image-system'];
 
@@ -666,7 +655,6 @@
       }
 
       arStarted = false;
-
       videoEl.pause();
 
       targetGuide.style.display = 'none';
@@ -675,7 +663,6 @@
       statusEl.textContent = '停止しました。';
     });
 
-    // ========= 音ON/OFF =========
     soundBtn.addEventListener('click', async () => {
       videoEl.muted = !videoEl.muted;
       soundBtn.textContent = videoEl.muted ? '音ON' : '音OFF';
@@ -688,7 +675,6 @@
       }
     });
 
-    // ========= 最初から再生 =========
     replayBtn.addEventListener('click', async () => {
       videoEl.currentTime = 0;
 
@@ -700,23 +686,17 @@
       }
     });
 
-    let playAfterAnimHandler = null;
-
-    // ========= 名刺認識時 =========
     cardTargetEl.addEventListener('targetFound', async () => {
       targetGuide.style.display = 'none';
       foundBanner.style.display = 'block';
       foundBanner.textContent = '名刺を認識しました';
 
       videoEl.currentTime = 0;
-
-      // 棒人間表示
       runnerEl.setAttribute('visible', 'true');
 
       if (isVerticalMode) {
         statusEl.textContent = '動画が立ち上がります...';
 
-        // マスク板の裏側からスタート
         videoPlane.setAttribute('position', '0 -0.35 0');
 
         videoPlane.setAttribute('animation', {
@@ -741,7 +721,6 @@
         };
 
         videoPlane.addEventListener('animationcomplete', playAfterAnimHandler, { once: true });
-
       } else {
         try {
           await videoEl.play();
@@ -756,7 +735,6 @@
       }, 2500);
     });
 
-    // ========= 名刺を見失った時 =========
     cardTargetEl.addEventListener('targetLost', () => {
       if (!arStarted) return;
 
