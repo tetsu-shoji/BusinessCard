@@ -4,135 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>名刺AR動画再生アプリ 90x55 棒人間ランナー版</title>
+  <title>名刺AR動画再生アプリ 90x55 ブレ補正＆マスク版</title>
 
-  <!-- A-Frame -->
-  https://aframe.io/releases/1.5.0/aframe.min.jsscript>
-
-  <!-- MindAR -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <script>
-    // ========= 透明なマスク板を作るコンポーネント =========
+    // ========= 新規追加：透明なマスク（裏側を隠す）を作るコンポーネント =========
     AFRAME.registerComponent('depth-mask', {
       init: function () {
         const applyMask = (mesh) => {
-          if (mesh && mesh.material) {
-            mesh.material.colorWrite = false;
-            mesh.renderOrder = -1;
+          if (mesh) {
+            mesh.material.colorWrite = false; // 色を塗らない（透明になる）
+            mesh.renderOrder = -1;            // 先に深度（奥行き）だけを計算させる
           }
         };
-
         applyMask(this.el.getObject3D('mesh'));
-
         this.el.addEventListener('model-loaded', () => {
           applyMask(this.el.getObject3D('mesh'));
         });
-      }
-    });
-
-    // ========= 名刺の4辺を走る棒人間コンポーネント =========
-    AFRAME.registerComponent('business-card-runner', {
-      schema: {
-        cardWidth: { type: 'number', default: 1.0 },
-        cardHeight: { type: 'number', default: 0.611111 },
-        margin: { type: 'number', default: 0.065 },
-        speed: { type: 'number', default: 0.00033 }
-      },
-
-      init: function () {
-        this.startTime = null;
-
-        this.armLeft = this.el.querySelector('.runner-arm-left');
-        this.armRight = this.el.querySelector('.runner-arm-right');
-        this.legLeft = this.el.querySelector('.runner-leg-left');
-        this.legRight = this.el.querySelector('.runner-leg-right');
-        this.head = this.el.querySelector('.runner-head');
-        this.body = this.el.querySelector('.runner-body');
-      },
-
-      tick: function (time) {
-        if (this.startTime === null) {
-          this.startTime = time;
-        }
-
-        const elapsed = time - this.startTime;
-
-        const cardWidth = this.data.cardWidth;
-        const cardHeight = this.data.cardHeight;
-        const margin = this.data.margin;
-        const speed = this.data.speed;
-
-        const left = -cardWidth / 2 - margin;
-        const right = cardWidth / 2 + margin;
-        const top = cardHeight / 2 + margin;
-        const bottom = -cardHeight / 2 - margin;
-
-        const widthLength = right - left;
-        const heightLength = top - bottom;
-        const perimeter = widthLength * 2 + heightLength * 2;
-
-        const distance = (elapsed * speed) % perimeter;
-
-        let x = 0;
-        let y = 0;
-        let zRotation = 0;
-
-        if (distance < widthLength) {
-          // 上辺：左から右へ
-          const t = distance / widthLength;
-          x = left + widthLength * t;
-          y = top;
-          zRotation = -90;
-        } else if (distance < widthLength + heightLength) {
-          // 右辺：上から下へ
-          const t = (distance - widthLength) / heightLength;
-          x = right;
-          y = top - heightLength * t;
-          zRotation = 180;
-        } else if (distance < widthLength * 2 + heightLength) {
-          // 下辺：右から左へ
-          const t = (distance - widthLength - heightLength) / widthLength;
-          x = right - widthLength * t;
-          y = bottom;
-          zRotation = 90;
-        } else {
-          // 左辺：下から上へ
-          const t = (distance - widthLength * 2 - heightLength) / heightLength;
-          x = left;
-          y = bottom + heightLength * t;
-          zRotation = 0;
-        }
-
-        this.el.setAttribute('position', `${x} ${y} 0.10`);
-        this.el.setAttribute('rotation', `0 0 ${zRotation}`);
-
-        const swing = Math.sin(elapsed * 0.018) * 35;
-        const hop = Math.abs(Math.sin(elapsed * 0.018)) * 0.025;
-
-        if (this.armLeft) {
-          this.armLeft.setAttribute('rotation', `0 0 ${45 + swing}`);
-        }
-
-        if (this.armRight) {
-          this.armRight.setAttribute('rotation', `0 0 ${-45 - swing}`);
-        }
-
-        if (this.legLeft) {
-          this.legLeft.setAttribute('rotation', `0 0 ${-25 - swing}`);
-        }
-
-        if (this.legRight) {
-          this.legRight.setAttribute('rotation', `0 0 ${25 + swing}`);
-        }
-
-        if (this.body) {
-          this.body.setAttribute('position', `0 ${0.18 + hop} 0`);
-        }
-
-        if (this.head) {
-          this.head.setAttribute('position', `0 ${0.43 + hop} 0`);
-        }
       }
     });
   </script>
@@ -223,39 +113,12 @@
       cursor: pointer;
     }
 
-    button:active {
-      transform: scale(0.97);
-    }
-
-    #startBtn {
-      background: #005bd3;
-      color: #fff;
-    }
-
-    #stopBtn {
-      background: #333;
-      color: #fff;
-    }
-
-    #soundBtn {
-      background: #00a36c;
-      color: #fff;
-    }
-
-    #modeBtn {
-      background: #ff9800;
-      color: #fff;
-    }
-
-    #captureBtn {
-      background: #e91e63;
-      color: #fff;
-    }
-
-    #replayBtn {
-      background: #ffffff;
-      color: #111;
-    }
+    button:active { transform: scale(0.97); }
+    #startBtn { background: #005bd3; color: #fff; }
+    #stopBtn { background: #333; color: #fff; }
+    #soundBtn { background: #00a36c; color: #fff; }
+    #modeBtn { background: #ff9800; color: #fff; }
+    #captureBtn { background: #e91e63; color: #fff; }
 
     #status {
       position: fixed;
@@ -334,105 +197,48 @@
     <div id="status">初期化中です。</div>
   </div>
 
+  <!-- 修正点: filterMinCF と filterBeta を追加してプルプルを強力に抑制 -->
   <a-scene
     id="arScene"
     mindar-image="imageTargetSrc: ./business_card.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.001; filterBeta: 0.01;"
     embedded
     color-space="sRGB"
-    renderer="colorManagement: true; antialias: true; alpha: true; preserveDrawingBuffer: true"
+    renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true; alpha: true; preserveDrawingBuffer: true"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false">
 
     <a-assets timeout="30000">
-      ./business_card_video.mp4
+      <video
+        id="cardVideo"
+        src="./business_card_video.mp4"
+        preload="auto"
+        loop
+        muted
+        playsinline
+        webkit-playsinline
+        crossorigin="anonymous">
       </video>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity id="cardTarget" mindar-image-target="targetIndex: 0">
+      
+      <!-- 新規追加: 名刺の奥側を隠す「透明なマスク板」 -->
+      <!-- widthとheightを名刺より大きくし、少し奥(z=-0.01)に配置 -->
+      <a-plane position="0 0 -0.01" width="3" height="3" depth-mask></a-plane>
 
-      <!-- 名刺の奥側を隠す透明マスク板 -->
-      <a-plane
-        position="0 0 -0.01"
-        width="3"
-        height="3"
-        depth-mask>
-      </a-plane>
-
-      <!-- 名刺に重ねる動画 -->
       <a-entity id="videoWrapper" position="0 0 0.03" rotation="0 0 0">
-        #cardVideo
+        <a-video
+          id="videoPlane"
+          src="#cardVideo"
+          width="1"
+          height="0.611111"
+          position="0 0 0"
+          rotation="0 0 0"
+          material="shader: flat; side: double; transparent: false;">
         </a-video>
       </a-entity>
-
-      <!-- 名刺の4辺を走る小さい棒人間 -->
-      <a-entity
-        id="runner"
-        visible="true"
-        scale="0.055 0.055 0.055"
-        business-card-runner="cardWidth: 1; cardHeight: 0.611111; margin: 0.065; speed: 0.00033;">
-
-        <a-sphere
-          class="runner-head"
-          radius="0.105"
-          position="0 0.43 0"
-          color="#fff176">
-        </a-sphere>
-
-        <a-cylinder
-          class="runner-body"
-          radius="0.032"
-          height="0.38"
-          position="0 0.18 0"
-          color="#00e5ff">
-        </a-cylinder>
-
-        <a-cylinder
-          class="runner-arm-left"
-          radius="0.024"
-          height="0.32"
-          position="-0.13 0.23 0"
-          rotation="0 0 45"
-          color="#ffffff">
-        </a-cylinder>
-
-        <a-cylinder
-          class="runner-arm-right"
-          radius="0.024"
-          height="0.32"
-          position="0.13 0.23 0"
-          rotation="0 0 -45"
-          color="#ffffff">
-        </a-cylinder>
-
-        <a-cylinder
-          class="runner-leg-left"
-          radius="0.027"
-          height="0.36"
-          position="-0.08 -0.13 0"
-          rotation="0 0 -25"
-          color="#ffffff">
-        </a-cylinder>
-
-        <a-cylinder
-          class="runner-leg-right"
-          radius="0.027"
-          height="0.36"
-          position="0.08 -0.13 0"
-          rotation="0 0 25"
-          color="#ffffff">
-        </a-cylinder>
-
-        <a-circle
-          radius="0.14"
-          position="0 -0.34 -0.01"
-          color="#000000"
-          opacity="0.28"
-          material="shader: flat; transparent: true; side: double;">
-        </a-circle>
-      </a-entity>
-
     </a-entity>
   </a-scene>
 
@@ -442,7 +248,6 @@
     const videoWrapper = document.querySelector('#videoWrapper');
     const videoPlane = document.querySelector('#videoPlane');
     const videoEl = document.querySelector('#cardVideo');
-    const runnerEl = document.querySelector('#runner');
 
     const startBtn = document.querySelector('#startBtn');
     const stopBtn = document.querySelector('#stopBtn');
@@ -459,39 +264,35 @@
     let arStarted = false;
     let videoUnlocked = false;
     let isVerticalMode = false;
-    let playAfterAnimHandler = null;
 
     window.addEventListener('load', () => {
       statusEl.textContent = '準備完了です。カメラ開始を押してください。';
     });
 
-    sceneEl.addEventListener('loaded', () => {
-      sceneLoaded = true;
-    });
+    sceneEl.addEventListener('loaded', () => { sceneLoaded = true; });
 
     // ========= モード切替処理 =========
     modeBtn.addEventListener('click', () => {
       isVerticalMode = !isVerticalMode;
-
+      
       if (isVerticalMode) {
         modeBtn.textContent = '平面モードへ切替';
         modeBtn.style.background = '#005bd3';
-
+        
         videoWrapper.setAttribute('position', '0 0.3055 0.03');
         videoWrapper.setAttribute('rotation', '90 0 0');
-
+        
+        // 動画は初期状態で「マスク板の完全に裏側」に隠しておく
         videoPlane.setAttribute('position', '0 -0.35 0');
         statusEl.textContent = '立体モードに切り替えました。';
       } else {
         modeBtn.textContent = '立体モードへ切替';
         modeBtn.style.background = '#ff9800';
-
+        
         videoWrapper.setAttribute('position', '0 0 0.03');
         videoWrapper.setAttribute('rotation', '0 0 0');
-
         videoPlane.setAttribute('position', '0 0 0');
         videoPlane.removeAttribute('animation');
-
         statusEl.textContent = '平面モードに切り替えました。';
       }
     });
@@ -514,16 +315,11 @@
       const compCanvas = document.createElement('canvas');
       compCanvas.width = arCanvas.width;
       compCanvas.height = arCanvas.height;
-
       const ctx = compCanvas.getContext('2d');
 
       const videoRatio = cameraVideo.videoWidth / cameraVideo.videoHeight;
       const canvasRatio = compCanvas.width / compCanvas.height;
-
-      let drawWidth;
-      let drawHeight;
-      let offsetX;
-      let offsetY;
+      let drawWidth, drawHeight, offsetX, offsetY;
 
       if (canvasRatio > videoRatio) {
         drawWidth = compCanvas.width;
@@ -543,14 +339,15 @@
       const dataURL = compCanvas.toDataURL('image/png');
       const link = document.createElement('a');
       const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
-
       link.download = `AR_Snap_${dateStr}.png`;
       link.href = dataURL;
       link.click();
-
-      statusEl.textContent = '画像を保存しました。';
+      
+      statusEl.textContent = '画像を保存しました！（端末によっては長押し保存が必要です）';
     });
 
+
+    // ========= 既存のAR関連処理 =========
     async function waitForMindARSystem() {
       for (let i = 0; i < 50; i++) {
         const system = sceneEl.systems['mindar-image-system'];
@@ -562,7 +359,6 @@
 
     async function unlockVideoOnce() {
       if (videoUnlocked) return;
-
       try {
         videoEl.muted = true;
         videoEl.playsInline = true;
@@ -610,56 +406,30 @@
 
     startBtn.addEventListener('click', async () => {
       try {
-        statusEl.textContent = 'カメラを起動しています...';
-
         const mindarSystem = await waitForMindARSystem();
-
-        if (!mindarSystem) {
-          statusEl.textContent = 'MINDARシステムが見つかりません。コードまたはmindファイルを確認してください。';
-          return;
-        }
+        if (!mindarSystem) return;
 
         await unlockVideoOnce();
-
         targetGuide.style.display = 'block';
-        foundBanner.style.display = 'none';
-
+        
         await mindarSystem.start();
-
         arStarted = true;
 
         setTimeout(fixCameraVisualLayer, 200);
         setTimeout(fixCameraVisualLayer, 800);
-        setTimeout(fixCameraVisualLayer, 1500);
-
         statusEl.textContent = '登録した名刺を画面中央に入れてください。';
       } catch (error) {
-        console.error(error);
-
-        statusEl.textContent =
-          'カメラ開始に失敗しました。\n' +
-          '確認してください：\n' +
-          '1. HTTPSのURLで開いているか\n' +
-          '2. カメラ許可を許可しているか\n' +
-          '3. business_card.mind が同じフォルダにあるか\n' +
-          '4. business_card_video.mp4 が同じフォルダにあるか\n' +
-          '5. iPhoneの場合はSafariで開いているか';
+        statusEl.textContent = 'カメラ開始に失敗しました。';
       }
     });
 
     stopBtn.addEventListener('click', () => {
       const system = sceneEl.systems['mindar-image-system'];
-
-      if (system) {
-        system.stop();
-      }
-
+      if (system) system.stop();
       arStarted = false;
       videoEl.pause();
-
       targetGuide.style.display = 'none';
       foundBanner.style.display = 'none';
-
       statusEl.textContent = '停止しました。';
     });
 
@@ -667,38 +437,26 @@
       videoEl.muted = !videoEl.muted;
       soundBtn.textContent = videoEl.muted ? '音ON' : '音OFF';
       statusEl.textContent = videoEl.muted ? 'ミュートにしました。' : '音をONにしました。';
-
-      try {
-        await videoEl.play();
-      } catch (e) {
-        console.log(e);
-      }
     });
 
     replayBtn.addEventListener('click', async () => {
       videoEl.currentTime = 0;
-
-      try {
-        await videoEl.play();
-        statusEl.textContent = '最初から再生しました。';
-      } catch (e) {
-        console.log(e);
-      }
+      try { await videoEl.play(); } catch(e) {}
     });
+
+    let playAfterAnimHandler = null;
 
     cardTargetEl.addEventListener('targetFound', async () => {
       targetGuide.style.display = 'none';
       foundBanner.style.display = 'block';
       foundBanner.textContent = '名刺を認識しました';
-
       videoEl.currentTime = 0;
-      runnerEl.setAttribute('visible', 'true');
 
       if (isVerticalMode) {
         statusEl.textContent = '動画が立ち上がります...';
-
+        // マスク板の完全に裏側からスタート
         videoPlane.setAttribute('position', '0 -0.35 0');
-
+        
         videoPlane.setAttribute('animation', {
           property: 'position',
           to: '0 0.3055 0',
@@ -710,44 +468,35 @@
         if (playAfterAnimHandler) {
           videoPlane.removeEventListener('animationcomplete', playAfterAnimHandler);
         }
-
+        
         playAfterAnimHandler = async () => {
           try {
             await videoEl.play();
-            statusEl.textContent = '再生を開始しました。棒人間が名刺の周囲を走っています。';
-          } catch (e) {
-            console.log(e);
-          }
+            statusEl.textContent = '再生を開始しました。';
+          } catch(e) {}
         };
-
         videoPlane.addEventListener('animationcomplete', playAfterAnimHandler, { once: true });
+
       } else {
         try {
           await videoEl.play();
-          statusEl.textContent = '再生を開始しました。棒人間が名刺の周囲を走っています。';
-        } catch (e) {
-          console.log(e);
-        }
+          statusEl.textContent = '再生を開始しました。';
+        } catch (e) {}
       }
 
-      setTimeout(() => {
-        foundBanner.style.display = 'none';
-      }, 2500);
+      setTimeout(() => { foundBanner.style.display = 'none'; }, 2500);
     });
 
     cardTargetEl.addEventListener('targetLost', () => {
       if (!arStarted) return;
-
       videoEl.pause();
-
       foundBanner.style.display = 'none';
       targetGuide.style.display = 'block';
-
       statusEl.textContent = '名刺を見失いました。もう一度枠に入れてください。';
 
       if (isVerticalMode) {
         videoPlane.removeAttribute('animation');
-        videoPlane.setAttribute('position', '0 -0.35 0');
+        videoPlane.setAttribute('position', '0 -0.35 0'); // 見失ったら裏側にリセット
       }
     });
   </script>
